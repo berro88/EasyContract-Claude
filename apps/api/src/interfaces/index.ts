@@ -2,7 +2,7 @@
 // (DeterministicProvider) have implementations today; the rest are contracts
 // that later stages fill in.
 
-import type { BlockKind, BlockNote, ExpertiseLevel } from '@easycontract/shared';
+import type { BlockKind, BlockNote, ClauseExplanation, ExpertiseLevel, Topic } from '@easycontract/shared';
 
 /** Encrypts file bytes at rest. Swap in a KMS-backed one without touching callers. */
 export interface StorageEncryption {
@@ -28,6 +28,14 @@ export interface AiProvider {
     level: ExpertiseLevel;
     location: string;
   }): Promise<BlockNote>;
+  /** Explains one clause under one topic. Must quote, never invent, specifics. */
+  explainClause(input: {
+    blockId: string;
+    text: string;
+    topic: Topic;
+    level: ExpertiseLevel;
+    reasons?: string[];
+  }): Promise<ClauseExplanation>;
 }
 
 export interface PlaybookPosition {

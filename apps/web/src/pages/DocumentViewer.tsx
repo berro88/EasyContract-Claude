@@ -1,38 +1,44 @@
 import { useEffect, useRef } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { DOCUMENT_ROLE_LABELS, type BlockNote, type DocumentRole, type DocumentVersionSummary, type ExtractionBlock } from '@easycontract/shared';
+import {
+  DOCUMENT_ROLE_LABELS, TOPIC_LABELS, type BlockNote, type ClauseExplanation, type DocumentRole, type DocumentSummary,
+  type DocumentVersionSummary, type ExtractionBlock, type TopicsResponse,
+} from '@easycontract/shared';
 import { useApi } from '../lib/useApi.ts';
 import { usePrefs } from '../lib/prefs.tsx';
 import { Warning } from '../components/Warning.tsx';
 import { POLICY_DISCLAIMER, WARNINGS } from '../lib/warnings.ts';
 
 interface DocumentDetail { id: string; title: string; role: DocumentRole; versions: DocumentVersionSummary[] }
-interface BlockDetail { block: ExtractionBlock; note: BlockNote; disclaimer: string }
+interface BlockDetail { block: ExtractionBlock; note: BlockNote; heading: string | null; explanations: ClauseExplanation[]; disclaimer: string }
 interface Passage { text: string | null; verified: boolean; location: string; before: string; after: string }
+type View = 'document' | 'topics' | 'findings';
 
 const SAFETY_LINE = /^(Warning:|Tracked changes|Unaccepted revision)/;
-const isTracked =(b: ExtractionBlock) => b.kind === 'tracked_insertion' || b.kind === 'tracked_deletion';
+const isTracked = (b: { kind: string }) => b.kind === 'tracked_insertion' || b.kind === 'tracked_deletion';
 
 export function DocumentViewer() {
   const { projectId, documentId } = useParams();
   const [params, setParams] = useSearchParams();
   const selectedId = params.get('block');
-  const { level } = usePrefs();
+  const view: View = params.get('view') === 'topics' ? 'topics' : params.get('view') === 'findings' ? 'findings' : 'document';
   const doc = useApi<DocumentDetail>(`/documents/${documentId}`);
+  const project = useApi<{ documents: DocumentSummary[] }>(`/projects/${projectId}`);
   const blocks = useApi<{ version: DocumentVersionSummary; blocks: ExtractionBlock[] }>(`/documents/${documentId}/blocks`);
-  const detail = useApi<BlockDetail>(selectedId ? `/blocks/${selectedId}?level=${level}` : null);
-  const passage = useApi<Passage>(selectedId ? `/blocks/${selectedId}/passage` : null);
-  const selectedRef = useRef<HTMLButtonElement>(null);
+  const topics = useApi<TopicsResponse>(`/documents/${documentId}/topics`);
 
-  useEffect(() => {
-    selectedRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }, [selectedId, blocks.data]);
+  const go = (next: { view?: View; block?: string | null }) => {
+    const p: Record<string, string> = {};
+    const v = next.view ?? view;
+    if (v !== 'document') p.view = v;
+    const b = next.block === undefined ? selectedId : next.block;
+    if (b) p.block = b;
+    setParams(p);
+  };
 
   if (doc.error || blocks.error) return <div className="card">{doc.error ?? blocks.error}</div>;
   if (!doc.data || !blocks.data) return null;
-
   const version = blocks.data.version;
-  let lastPage = 0;
 
   return (
     <section className="viewer">
@@ -47,70 +53,228 @@ export function DocumentViewer() {
       {version.status === 'unreadable' && <Warning tone="danger">{version.qualityMessage ?? WARNINGS.unreadable}</Warning>}
 
       <div className="viewer__grid">
-        <div className="viewer__doc" aria-label="Document">
-          {blocks.data.blocks.map((b) => {
-            const page = b.anchor.format === 'pdf' ? b.anchor.page : 0;
-            const pageBreak = page && page !== lastPage ? <div className="page-sep">Page {page}</div> : null;
-            lastPage = page || lastPage;
-            const selected = b.id === selectedId;
-            return (
-              <div key={b.id}>
-                {pageBreak}
-                <button
-                  ref={selected ? selectedRef : undefined}
-                  className={['block', `block--${b.kind}`, selected ? 'is-selected' : '', b.flags.length ? 'is-flagged' : ''].join(' ')}
-                  onClick={() => setParams({ block: b.id })}
-                  aria-pressed={selected}
-                >
-                  {b.clauseNumber && <span className="block__num">{b.clauseNumber}</span>}
-                  {isTracked(b) && <span className="block__tag">{b.kind === 'tracked_insertion' ? 'Added' : 'Deleted'}</span>}
-                  {b.flags.includes('embedded_instruction') && <span className="block__tag block__tag--bad">Check this</span>}
-                  <span className="block__text">{b.text}</span>
-                </button>
-              </div>
-            );
-          })}
+        <nav className="sidenav" aria-label="Sections">
+          <button className={view === 'document' ? 'is-active' : ''} onClick={() => go({ view: 'document' })}>
+            <span>Documents</span>
+          </button>
+          <ul className="sidenav__docs">
+            {project.data?.documents.map((d) => (
+              <li key={d.id}>
+                <Link to={`/projects/${projectId}/documents/${d.id}`} className={d.id === documentId ? 'is-current' : ''}>
+                  {d.title}
+                  <small>{DOCUMENT_ROLE_LABELS[d.role]}</small>
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <button className={view === 'topics' ? 'is-active' : ''} onClick={() => go({ view: 'topics' })}>
+            <span>Topics</span>
+            {topics.data && <span className="count">{topics.data.cards.length}</span>}
+          </button>
+          <button className={view === 'findings' ? 'is-active' : ''} onClick={() => go({ view: 'findings' })}>
+            <span>Findings</span>
+          </button>
+        </nav>
+
+        <div className="viewer__main">
+          {view === 'document' && <DocumentText blocks={blocks.data.blocks} selectedId={selectedId} onSelect={(id) => go({ block: id })} />}
+          {view === 'topics' && <TopicCards data={topics.data} error={topics.error} selectedId={selectedId} onSelect={(id) => go({ block: id })} />}
+          {view === 'findings' && (
+            <div className="card empty">
+              <span className="empty__icon" aria-hidden>🔎</span>
+              <h2>No findings yet</h2>
+              <p>Risk findings (for example a liability cap undone by an indemnity) will appear here in a later update.</p>
+            </div>
+          )}
         </div>
 
         <aside className="viewer__panel" aria-label="Explanation">
-          {!selectedId && (
-            <div className="empty">
-              <span className="empty__icon" aria-hidden>👈</span>
-              <p>Click any passage to see exactly where it comes from.</p>
-            </div>
-          )}
-          {selectedId && detail.data && (
-            <>
-              <h2>{detail.data.block.clauseNumber ? `Clause ${detail.data.block.clauseNumber}` : 'Passage'}</h2>
-              {detail.data.block.flags.includes('embedded_instruction') && <Warning tone="danger">{WARNINGS.embeddedInstruction}</Warning>}
-              {isTracked(detail.data.block) && <Warning>{WARNINGS.trackedChange}</Warning>}
-              <ul className="note">
-                {/* The warnings above already cover the provider's safety lines; show the rest. */}
-                {detail.data.note.lines.filter((l) => !SAFETY_LINE.test(l)).map((l) => <li key={l}>{l}</li>)}
-              </ul>
-
-              <h3>Exact passage from the original file</h3>
-              {passage.loading && <p className="muted">Opening the original…</p>}
-              {passage.data && (
-                <>
-                  {!passage.data.verified && <Warning tone="danger">{WARNINGS.unverified}</Warning>}
-                  <blockquote className="passage">
-                    {passage.data.before && <span className="passage__ctx">…{passage.data.before}{'\n'}</span>}
-                    <mark>{passage.data.text}</mark>
-                    {passage.data.after && <span className="passage__ctx">{'\n'}{passage.data.after}…</span>}
-                  </blockquote>
-                  <p className="muted small">
-                    {level === 'legal' ? passage.data.location : passage.data.location.split(',')[0]}
-                    {passage.data.verified && ' · matches the original file'}
-                  </p>
-                </>
-              )}
-              <p className="disclaimer">{POLICY_DISCLAIMER}</p>
-            </>
-          )}
-          {selectedId && (detail.error || passage.error) && <p className="error">{detail.error ?? passage.error}</p>}
+          {selectedId
+            ? <BlockPanel blockId={selectedId} showOpenInDocument={view !== 'document'} onOpenInDocument={() => go({ view: 'document' })} />
+            : (
+              <div className="empty">
+                <span className="empty__icon" aria-hidden>👈</span>
+                <p>Click any passage to see what it means and exactly where it comes from.</p>
+              </div>
+            )}
         </aside>
       </div>
     </section>
+  );
+}
+
+function DocumentText({ blocks, selectedId, onSelect }: { blocks: ExtractionBlock[]; selectedId: string | null; onSelect(id: string): void }) {
+  const selectedRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    selectedRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [selectedId]);
+  let lastPage = 0;
+  return (
+    <div className="viewer__doc" aria-label="Document">
+      {blocks.map((b) => {
+        const page = b.anchor.format === 'pdf' ? b.anchor.page : 0;
+        const pageBreak = page && page !== lastPage ? <div className="page-sep">Page {page}</div> : null;
+        lastPage = page || lastPage;
+        const selected = b.id === selectedId;
+        return (
+          <div key={b.id}>
+            {pageBreak}
+            <button
+              ref={selected ? selectedRef : undefined}
+              className={['block', `block--${b.kind}`, selected ? 'is-selected' : '', b.flags.length ? 'is-flagged' : ''].join(' ')}
+              onClick={() => onSelect(b.id)}
+              aria-pressed={selected}
+            >
+              {b.clauseNumber && <span className="block__num">{b.clauseNumber}</span>}
+              {isTracked(b) && <span className="block__tag">{b.kind === 'tracked_insertion' ? 'Added' : 'Deleted'}</span>}
+              {b.flags.includes('embedded_instruction') && <span className="block__tag block__tag--bad">Check this</span>}
+              <span className="block__text">{b.text}</span>
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TopicCards({ data, error, selectedId, onSelect }: {
+  data: TopicsResponse | null; error: string | null; selectedId: string | null; onSelect(id: string): void;
+}) {
+  if (error) return <p className="error">{error}</p>;
+  if (!data) return null;
+  return (
+    <div>
+      {data.cards.length === 0 && <div className="card empty"><p>No clauses in this document matched any topic.</p></div>}
+      <div className="topic-grid">
+        {data.cards.map((card) => (
+          <section key={card.topic} className="topic-card">
+            <header>
+              <h3>{card.label}</h3>
+              <span className="count">{card.blocks.length}</span>
+            </header>
+            <ul>
+              {card.blocks.map((b) => (
+                <li key={b.blockId}>
+                  <button className={`topic-ref ${b.blockId === selectedId ? 'is-selected' : ''}`} onClick={() => onSelect(b.blockId)}>
+                    {b.clauseNumber && <span className="block__num">{b.clauseNumber}</span>}
+                    {isTracked(b) && <span className="block__tag">{b.kind === 'tracked_insertion' ? 'Added' : 'Deleted'}</span>}
+                    <span>{b.excerpt}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+
+      {data.notFound.length > 0 && (
+        <section className="card not-found">
+          <h3>Not stated in this document</h3>
+          <p className="muted small">No clause matched these topics. That may be fine, or it may be a gap worth asking about. They might also be in another document in this project.</p>
+          <div className="chips">
+            {data.notFound.map((t) => <span key={t} className="chip">{TOPIC_LABELS[t]}</span>)}
+          </div>
+        </section>
+      )}
+
+      {data.unsorted.length > 0 && (
+        <details className="card unsorted">
+          <summary>{data.unsorted.length} passage{data.unsorted.length === 1 ? '' : 's'} not sorted into a topic</summary>
+          <ul>
+            {data.unsorted.map((b) => (
+              <li key={b.blockId}>
+                <button className={`topic-ref ${b.blockId === selectedId ? 'is-selected' : ''}`} onClick={() => onSelect(b.blockId)}>
+                  {b.clauseNumber && <span className="block__num">{b.clauseNumber}</span>}
+                  <span>{b.excerpt}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function BlockPanel({ blockId, showOpenInDocument, onOpenInDocument }: { blockId: string; showOpenInDocument: boolean; onOpenInDocument(): void }) {
+  const { level } = usePrefs();
+  const detail = useApi<BlockDetail>(`/blocks/${blockId}?level=${level}`);
+  const passage = useApi<Passage>(`/blocks/${blockId}/passage`);
+  const top = useRef<HTMLHeadingElement>(null);
+
+  // On narrow screens the panel sits below the list, so bring it into view.
+  useEffect(() => {
+    if (detail.data && window.matchMedia('(max-width: 860px)').matches) top.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [blockId, detail.data]);
+
+  if (detail.error || passage.error) return <p className="error">{detail.error ?? passage.error}</p>;
+  if (!detail.data) return <p className="muted">Loading…</p>;
+  const { block, note, explanations, heading } = detail.data;
+
+  return (
+    <>
+      <h2 ref={top}>{block.clauseNumber ? `Clause ${block.clauseNumber}` : 'Passage'}</h2>
+      {heading && <p className="muted small">Under “{heading}”</p>}
+      {block.flags.includes('embedded_instruction') && <Warning tone="danger">{WARNINGS.embeddedInstruction}</Warning>}
+      {isTracked(block) && <Warning>{WARNINGS.trackedChange}</Warning>}
+
+      {explanations.length === 0 && (
+        <p className="muted">This passage wasn't sorted into a topic, so there is no explanation for it. Read it in full below.</p>
+      )}
+      {explanations.map((e) => (
+        <section key={e.topic} className="explain">
+          <span className="chip chip--topic">{TOPIC_LABELS[e.topic]}</span>
+          <h3>What it means</h3>
+          <p>{e.whatItMeans}</p>
+          <h3>Who it favours</h3>
+          <p>{e.whoItFavours}</p>
+          <h3>What to check</h3>
+          <ul>{e.whatToCheck.map((c) => <li key={c}>{c}</li>)}</ul>
+          {e.facts.length > 0 && (
+            <>
+              <h3>Quoted from this clause</h3>
+              <dl className="facts">
+                {e.facts.map((f) => (
+                  <div key={f.kind + f.quote}>
+                    <dt>{f.label}</dt>
+                    <dd><q>{f.quote}</q></dd>
+                  </div>
+                ))}
+              </dl>
+            </>
+          )}
+          {e.reasons && e.reasons.length > 0 && (
+            <>
+              <h3>Why it's in this topic</h3>
+              <p className="muted small">Mentions {e.reasons.join('; ')}.</p>
+            </>
+          )}
+        </section>
+      ))}
+
+      <h3>Exact passage from the original file</h3>
+      {passage.loading && <p className="muted">Opening the original…</p>}
+      {passage.data && (
+        <>
+          {!passage.data.verified && <Warning tone="danger">{WARNINGS.unverified}</Warning>}
+          <blockquote className="passage">
+            {passage.data.before && <span className="passage__ctx">…{passage.data.before}{'\n'}</span>}
+            <mark>{passage.data.text}</mark>
+            {passage.data.after && <span className="passage__ctx">{'\n'}{passage.data.after}…</span>}
+          </blockquote>
+          <p className="muted small">
+            {level === 'legal' ? passage.data.location : passage.data.location.split(',')[0]}
+            {passage.data.verified && ' · matches the original file'}
+          </p>
+        </>
+      )}
+      {showOpenInDocument && <button className="btn" onClick={onOpenInDocument}>Show in the document</button>}
+      {level === 'legal' && (
+        <ul className="note small muted">
+          {note.lines.filter((l) => !SAFETY_LINE.test(l)).map((l) => <li key={l}>{l}</li>)}
+        </ul>
+      )}
+      <p className="disclaimer">{POLICY_DISCLAIMER}</p>
+    </>
   );
 }

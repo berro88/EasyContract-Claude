@@ -13,6 +13,7 @@
 ```
 apps/api        Fastify API on :3001, SQLite via node:sqlite
   src/db          schema, seed
+  src/analysis    topic sorting, quoted facts, explanation templates
   src/extraction  PDF (pdfjs-dist) and DOCX (jszip + xmldom) extraction, quality checks, flags
   src/lib         access policy, storage, audit and usage helpers
   src/interfaces  extension points (see below)
@@ -49,6 +50,12 @@ Block ids are deterministic hashes of version + anchor. The passage endpoint re-
 
 Quality checks report files as "couldn't read this" (not as a success) when they have no text, fewer than 40 characters per page, or mostly non-letter text. Files are identified by content, not just extension. Old `.doc` files get a "save as .docx" message until Stage 8.
 
+## Topics and explanations
+
+`src/analysis/topics.ts` scores each block against keyword rules per topic. Headings ("3 Fees") add weight to the clauses numbered under them. Tracked deletions are left out because they are not current wording. Results are computed on request from stored blocks, so they always match the latest rules.
+
+`src/analysis/explanations.ts` holds fixed templates per topic (Plain and Legal). `src/analysis/facts.ts` quotes periods, amounts, percentages, placeholders and defined terms verbatim. A test checks every explanation names its source block, every quote is a substring of that block, and no number appears in an explanation unless it appears in the clause.
+
 ## Extension points
 
 Declared in `apps/api/src/interfaces/index.ts`:
@@ -56,7 +63,7 @@ Declared in `apps/api/src/interfaces/index.ts`:
 | Interface | Today | Later |
 |---|---|---|
 | `StorageEncryption` | `IdentityEncryption` (no-op) | Encryption at rest with a managed key |
-| `AiProvider` | `DeterministicProvider` | Swappable real providers, chosen per tenant via `ai_provider_configs` |
+| `AiProvider` (`describeBlock`, `explainClause`) | `DeterministicProvider` | Swappable real providers, chosen per tenant via `ai_provider_configs` |
 | `PlaybookSource` | none | Stage 6 clause library and playbooks |
 | `RedlineExporter` | none | Redlined Word counter-drafts from block anchors |
 | `ObligationNotifier` | none | Reminders for key dates and obligations |

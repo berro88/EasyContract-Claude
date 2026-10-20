@@ -2,7 +2,8 @@
 // Entirely made up: no real parties, prices or terms.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { makeDocx, makeImageOnlyPdf, makePdf } from '../test/helpers.ts';
+import { makeDocx, makeImageOnlyPdf, makePdf, type DocxParagraph } from '../test/helpers.ts';
+import { SECTIONS } from '../test/synthetic-agreement.ts';
 
 const out = resolve(process.argv[2] ?? '../../samples');
 mkdirSync(out, { recursive: true });
@@ -35,4 +36,12 @@ const pdf = await makePdf([
 ]);
 writeFileSync(join(out, 'sample-increase-letter.pdf'), pdf);
 writeFileSync(join(out, 'sample-scanned.pdf'), await makeImageOnlyPdf(2));
+
+// One section per topic, for trying the Topics view.
+const msa: DocxParagraph[] = [{ text: 'Synthetic Master Services Agreement', style: 'Heading1' }];
+for (const s of SECTIONS) {
+  msa.push({ text: s.heading, num: { numId: 1, ilvl: 0 } });
+  for (const c of s.clauses) msa.push({ text: c, num: { numId: 1, ilvl: 1 } });
+}
+writeFileSync(join(out, 'sample-master-services-agreement.docx'), await makeDocx(msa, { numbering: true }));
 console.log(`Wrote synthetic samples to ${out}`);

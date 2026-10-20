@@ -10,8 +10,8 @@ We build one stage at a time. Every stage ends with a working flow and tests. No
 |---|---|---|
 | 0 | Context, architecture, roadmap (this file and `ARCHITECTURE.md`) | Done |
 | 1 | Understand a contract: projects, upload with document roles, PDF/DOCX extraction, source viewer, quality checks, audit and usage | Done |
-| 2 | Clause navigation into topic cards, plain-English explanations from templates | Next |
-| 3 | Version comparison, amendment reconciliation, letter matching | |
+| 2 | Clause navigation into topic cards, plain-English explanations from templates | Done |
+| 3 | Version comparison, amendment reconciliation, letter matching | Next |
 | 4 | Clause interactions and red/amber/green risk findings | |
 | 5 | Human decisions on findings; Word, PDF (and Excel) exports with the disclaimer | |
 | 6 | Versioned clause library and playbooks | |
@@ -40,6 +40,17 @@ Out of scope for Stage 1:
 - Real sign-up, invites, OCR, `.doc` files, deployment (Stage 8).
 - Any paid or external AI.
 
+## Stage 2 scope
+
+In scope:
+- Rule-based sorting of clauses into 17 topic cards (parties, term and renewal, pricing and escalation, payment, liability caps, indemnities, insurance, termination and notice, cure periods, confidentiality, IP, disputes, governing law, force majeure, assignment, service levels, penalties). A clause's own wording counts, plus the heading of the section it sits under. A clause can sit in more than one card.
+- Topics with no matching clause are listed as "not stated", not hidden. Passages that match nothing are listed as unsorted.
+- For each clause and topic, a template explanation through `AiProvider.explainClause`: what it means, who it favours (read only from the wording, "not clear" otherwise), what to check. Figures, placeholders and defined terms are quoted exactly from the clause, never calculated.
+- The Legal view gives fuller wording, a longer checklist, the reasons for the topic and the technical location.
+- Left navigation: Documents (with the project's other documents), Topics, Findings (empty state).
+
+Out of scope for Stage 2: comparing documents, risk findings, decisions, exports.
+
 ## Try it
 
 ```bash
@@ -48,4 +59,4 @@ pnpm --filter @easycontract/api samples   # writes synthetic contracts to ./samp
 pnpm dev                                   # API on :3001, web on :5173
 ```
 
-Open http://localhost:5173, choose **Understand a contract**, and upload the files from `samples/`.
+Open http://localhost:5173, choose **Understand a contract**, and upload the files from `samples/`. `sample-master-services-agreement.docx` has one section per topic.

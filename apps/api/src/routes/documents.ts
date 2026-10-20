@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   type BlockAnchor, type BlockFlag, type BlockKind, DOCUMENT_ROLES, type DocumentRole, type DocumentSummary,
   type DocumentVersionSummary, type ExpertiseLevel, type ExtractionBlock, POLICY_DISCLAIMER,
+  TOPICS, TOPIC_LABELS, type ClauseExplanation, type Topic, type TopicBlockRef, type TopicsResponse,
 } from '@easycontract/shared';
 import type { Db } from '../db/index.ts';
 import { newId, now } from '../db/index.ts';
@@ -11,6 +12,7 @@ import { anchorKey, detectFlags, stableBlockId } from '../extraction/common.ts';
 import { extractDocx } from '../extraction/docx.ts';
 import { readPdfPageText } from '../extraction/pdf.ts';
 import { loadProject } from './projects.ts';
+import { classifyBlocks } from '../analysis/topics.ts';
 
 interface VersionRow {
   id: string; document_id: string; version_number: number; file_name: string; mime_type: string; size_bytes: number;
@@ -69,6 +71,41 @@ export function describeLocation(anchor: BlockAnchor, level: ExpertiseLevel): st
 }
 
 const MAX_TITLE = 200;
+const EXCERPT_CHARS = 160;
+
+function versionBlocks(db: Db, tenantId: string, versionId: string): ExtractionBlock[] {
+  return (db.prepare(`SELECT * FROM extraction_blocks WHERE version_id = ? AND tenant_id = ? ORDER BY seq`)
+    .all(versionId, tenantId) as unknown as BlockRow[]).map(toBlock);
+}
+
+function excerpt(text: string, clauseNumber: string | null) {
+  // PDF text often starts with its own typed number; the card already shows it.
+  let t = text.replace(/\s+/g, ' ');
+  if (clauseNumber) t = t.replace(new RegExp(`^\\s*(?:clause|section|article)?\\s*${clauseNumber.replace(/[.()]/g, '\\$&')}[.)]?\\s+`, 'i'), '');
+  return t.length > EXCERPT_CHARS ? `${t.slice(0, EXCERPT_CHARS).trimEnd()}…` : t;
+}
+
+/** Sorts a version's blocks into topic cards. Every topic is listed, found or not. */
+export function buildTopics(blocks: ExtractionBlock[], versionId: string): TopicsResponse {
+  const byId = new Map(blocks.map((b) => [b.id, b]));
+  const classified = classifyBlocks(blocks);
+  const ref = (id: string, heading: string | null): TopicBlockRef => {
+    const b = byId.get(id)!;
+    return { blockId: b.id, clauseNumber: b.clauseNumber, kind: b.kind, excerpt: excerpt(b.text, b.clauseNumber), heading };
+  };
+  const cards = new Map<Topic, TopicBlockRef[]>();
+  const unsorted: TopicBlockRef[] = [];
+  for (const c of classified) {
+    if (!c.topics.length) unsorted.push(ref(c.blockId, c.heading));
+    for (const t of c.topics) cards.set(t, [...(cards.get(t) ?? []), ref(c.blockId, c.heading)]);
+  }
+  return {
+    versionId,
+    cards: TOPICS.filter((t) => cards.has(t)).map((t) => ({ topic: t, label: TOPIC_LABELS[t], blocks: cards.get(t)! })),
+    notFound: TOPICS.filter((t) => !cards.has(t)),
+    unsorted,
+  };
+}
 
 export const documentRoutes = ({ db, storage, ai }: Services) => async (app: FastifyInstance) => {
   app.post('/api/projects/:projectId/documents', async (req, reply) => {
@@ -188,6 +225,14 @@ export const documentRoutes = ({ db, storage, ai }: Services) => async (app: Fas
     return { version: toVersion(v), blocks: blocks.map(toBlock) };
   });
 
+  app.get('/api/documents/:documentId/topics', async (req): Promise<TopicsResponse> => {
+    const { documentId } = req.params as { documentId: string };
+    loadDocument(db, req.actor, documentId);
+    const v = latestVersion(db, req.actor.tenantId, documentId);
+    if (!v) throw notFound();
+    return buildTopics(versionBlocks(db, req.actor.tenantId, v.id), v.id);
+  });
+
   app.get('/api/documents/:documentId/file', async (req, reply) => {
     const { documentId } = req.params as { documentId: string };
     loadDocument(db, req.actor, documentId);
@@ -205,12 +250,18 @@ export const documentRoutes = ({ db, storage, ai }: Services) => async (app: Fas
     const { blockId } = req.params as { blockId: string };
     const { level: rawLevel } = req.query as { level?: string };
     const level: ExpertiseLevel = rawLevel === 'legal' ? 'legal' : 'plain';
-    const { block, documentId } = loadBlock(db, req.actor, blockId);
+    const { block, documentId, version } = loadBlock(db, req.actor, blockId);
     const note = await ai.describeBlock({
       blockId: block.id, kind: block.kind, clauseNumber: block.clauseNumber, text: block.text, level,
       location: describeLocation(block.anchor, level),
     });
-    return { block, documentId, note, disclaimer: POLICY_DISCLAIMER };
+    // Topics depend on headings around the block, so classify the whole version.
+    const c = classifyBlocks(versionBlocks(db, req.actor.tenantId, version.id)).find((x) => x.blockId === block.id);
+    const explanations: ClauseExplanation[] = [];
+    for (const topic of c?.topics ?? []) {
+      explanations.push(await ai.explainClause({ blockId: block.id, text: block.text, topic, level, reasons: c?.reasons[topic] }));
+    }
+    return { block, documentId, note, heading: c?.heading ?? null, explanations, disclaimer: POLICY_DISCLAIMER };
   });
 
   /**

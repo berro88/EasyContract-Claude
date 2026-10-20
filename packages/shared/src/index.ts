@@ -130,6 +130,90 @@ export interface BlockNote {
   lines: string[];
 }
 
+export const TOPICS = [
+  'parties',
+  'term_renewal',
+  'pricing_escalation',
+  'payment',
+  'liability_caps',
+  'indemnities',
+  'insurance',
+  'termination_notice',
+  'cure_periods',
+  'confidentiality',
+  'intellectual_property',
+  'disputes',
+  'governing_law',
+  'force_majeure',
+  'assignment',
+  'service_levels',
+  'penalties',
+] as const;
+export type Topic = (typeof TOPICS)[number];
+
+export const TOPIC_LABELS: Record<Topic, string> = {
+  parties: 'Parties',
+  term_renewal: 'Term and renewal',
+  pricing_escalation: 'Pricing and escalation',
+  payment: 'Payment',
+  liability_caps: 'Liability caps',
+  indemnities: 'Indemnities',
+  insurance: 'Insurance',
+  termination_notice: 'Termination and notice',
+  cure_periods: 'Cure periods',
+  confidentiality: 'Confidentiality',
+  intellectual_property: 'Intellectual property',
+  disputes: 'Disputes',
+  governing_law: 'Governing law',
+  force_majeure: 'Force majeure',
+  assignment: 'Assignment',
+  service_levels: 'Service levels',
+  penalties: 'Penalties',
+};
+
+/** Something found in a clause, quoted exactly from it. Never calculated. */
+export interface QuotedFact {
+  kind: 'period' | 'amount' | 'percentage' | 'placeholder' | 'defined_term';
+  label: string;
+  quote: string;
+  sourceBlockId: string;
+}
+
+/** A plain-English explanation of one clause. Always points back at its source. */
+export interface ClauseExplanation {
+  sourceBlockId: string;
+  topic: Topic;
+  level: ExpertiseLevel;
+  whatItMeans: string;
+  whoItFavours: string;
+  whatToCheck: string[];
+  facts: QuotedFact[];
+  /** Legal view only: why the clause landed in this topic. */
+  reasons?: string[];
+}
+
+export interface TopicBlockRef {
+  blockId: string;
+  clauseNumber: string | null;
+  kind: BlockKind;
+  excerpt: string;
+  heading: string | null;
+}
+
+export interface TopicCard {
+  topic: Topic;
+  label: string;
+  blocks: TopicBlockRef[];
+}
+
+export interface TopicsResponse {
+  versionId: string;
+  cards: TopicCard[];
+  /** Topics with no matching clause: shown as "not stated" rather than hidden. */
+  notFound: Topic[];
+  unsorted: TopicBlockRef[];
+}
+
 export const UPLOAD_LIMITS = {
   maxBytes: 20 * 1024 * 1024,
   extensions: ['.pdf', '.docx'],

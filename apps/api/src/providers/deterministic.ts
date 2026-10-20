@@ -1,6 +1,7 @@
 import type { BlockNote } from '@easycontract/shared';
 import type { AiProvider } from '../interfaces/index.ts';
 import { detectFlags } from '../extraction/common.ts';
+import { explainClause } from '../analysis/explanations.ts';
 
 /**
  * Template- and rule-based provider. No network, no keys, no model. It only
@@ -47,7 +48,10 @@ export class DeterministicProvider implements AiProvider {
       );
     }
 
-    lines.push('A plain-English explanation of what this clause means is not available yet.');
     return { sourceBlockId: blockId, level, lines };
+  }
+
+  async explainClause(input: Parameters<AiProvider['explainClause']>[0]) {
+    return explainClause(input);
   }
 }
