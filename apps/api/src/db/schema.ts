@@ -102,6 +102,25 @@ CREATE TABLE IF NOT EXISTS document_versions (
   UNIQUE (document_id, version_number)
 );
 
+-- Negotiation status is set by a person. File names and words like "final"
+-- never make a document authoritative. No row means 'unknown'.
+CREATE TABLE IF NOT EXISTS document_statuses (
+  document_id TEXT PRIMARY KEY REFERENCES documents(id),
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  negotiation_status TEXT NOT NULL CHECK (negotiation_status IN ('unknown','draft','proposed','agreed','signed','rejected')),
+  updated_by TEXT NOT NULL REFERENCES users(id),
+  updated_at TEXT NOT NULL
+);
+
+-- Which agreement an amendment, addendum or letter applies to.
+CREATE TABLE IF NOT EXISTS document_links (
+  document_id TEXT PRIMARY KEY REFERENCES documents(id),
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  target_document_id TEXT NOT NULL REFERENCES documents(id),
+  created_by TEXT NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS extraction_blocks (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL REFERENCES tenants(id),

@@ -1,6 +1,9 @@
 import { useRef, useState, type DragEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { DOCUMENT_ROLES, DOCUMENT_ROLE_LABELS, UPLOAD_LIMITS, type DocumentRole, type DocumentSummary, type ProjectSummary, type Role } from '@easycontract/shared';
+import {
+  DOCUMENT_ROLES, DOCUMENT_ROLE_LABELS, NEGOTIATION_LABELS, NEGOTIATION_STATUSES, UPLOAD_LIMITS,
+  type DocumentRole, type DocumentSummary, type NegotiationStatus, type ProjectSummary, type Role,
+} from '@easycontract/shared';
 import { api } from '../lib/api.ts';
 import { useApi } from '../lib/useApi.ts';
 import { usePrefs } from '../lib/prefs.tsx';
@@ -21,8 +24,20 @@ export function ProjectPage() {
   const [message, setMessage] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
   const [dragging, setDragging] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const versionInput = useRef<HTMLInputElement>(null);
+  const [versionFor, setVersionFor] = useState<DocumentSummary | null>(null);
 
-  async function send(file: File) {
+  async function update(path: string, body: unknown) {
+    setMessage(null);
+    try {
+      await api(path, { method: 'PUT', body: JSON.stringify(body) });
+      await reload();
+    } catch (err) {
+      setMessage({ kind: 'error', text: (err as Error).message });
+    }
+  }
+
+  async function send(file: File, newVersionOf: DocumentSummary | null = null) {
     setMessage(null);
     const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
     if (!(UPLOAD_LIMITS.extensions as readonly string[]).includes(ext)) {
@@ -34,7 +49,9 @@ export function ProjectPage() {
       return;
     }
     const form = new FormData();
-    form.append('role', role); // fields before the file
+    // Fields before the file.
+    form.append('role', newVersionOf?.role ?? role);
+    if (newVersionOf) form.append('documentId', newVersionOf.id);
     form.append('file', file);
     setBusy(true);
     try {
@@ -42,13 +59,15 @@ export function ProjectPage() {
       const v = res.document.latestVersion;
       setMessage(v?.status === 'unreadable'
         ? { kind: 'error', text: `${file.name}: ${v.qualityMessage}` }
-        : { kind: 'ok', text: `${file.name} uploaded: ${res.blockCount} passages found.` });
+        : { kind: 'ok', text: `${file.name} uploaded${newVersionOf ? ` as version ${v?.versionNumber} of "${newVersionOf.title}"` : ''}: ${res.blockCount} passages found.` });
       await reload();
     } catch (err) {
       setMessage({ kind: 'error', text: (err as Error).message });
     } finally {
       setBusy(false);
       if (input.current) input.current.value = '';
+      if (versionInput.current) versionInput.current.value = '';
+      setVersionFor(null);
     }
   }
 
@@ -100,28 +119,69 @@ export function ProjectPage() {
         )}
       </div>
 
-      <h2>Documents</h2>
+      <div className="row-between">
+        <h2>Documents</h2>
+        {data.documents.filter((d) => d.latestVersion?.status === 'ready').length >= 2 && (
+          <Link className="btn btn--primary" to={`/projects/${projectId}/compare`}>Compare and reconcile →</Link>
+        )}
+      </div>
       {data.documents.length === 0 && <div className="card empty"><p>No documents yet. Upload the main agreement first.</p></div>}
+      <input ref={versionInput} type="file" hidden accept=".pdf,.docx" onChange={(e) => e.target.files?.[0] && send(e.target.files[0], versionFor)} />
       <ul className="list">
         {data.documents.map((d) => {
           const v = d.latestVersion;
           const unreadable = v?.status === 'unreadable';
+          const linkable = ['amendment', 'addendum', 'increase_letter'].includes(d.role);
+          const targets = data.documents.filter((t) => t.id !== d.id && ['main_agreement', 'signed_copy'].includes(t.role));
           return (
             <li key={d.id}>
-              <div className="list__item">
-                <div>
+              <div className="list__item doc-item">
+                <div className="doc-item__main">
                   {unreadable ? <strong>{d.title}</strong> : <Link to={`/projects/${projectId}/documents/${d.id}`}><strong>{d.title}</strong></Link>}
                   <div className="muted">
-                    {DOCUMENT_ROLE_LABELS[d.role]} · {v?.fileName} · version {v?.versionNumber}{v?.pageCount ? ` · ${v.pageCount} page${v.pageCount === 1 ? '' : 's'}` : ''}
+                    {DOCUMENT_ROLE_LABELS[d.role]} · {v?.fileName} · version {v?.versionNumber}{d.versionCount > 1 ? ` of ${d.versionCount}` : ''}{v?.pageCount ? ` · ${v.pageCount} page${v.pageCount === 1 ? '' : 's'}` : ''}
                   </div>
                   {unreadable && <Warning tone="danger">{v?.qualityMessage ?? WARNINGS.unreadable}</Warning>}
+                  <div className="doc-item__controls">
+                    <label className="field field--inline field--small">
+                      <span>Status</span>
+                      <select
+                        value={d.negotiationStatus}
+                        disabled={!canUpload}
+                        onChange={(e) => update(`/documents/${d.id}/status`, { negotiationStatus: e.target.value as NegotiationStatus })}
+                      >
+                        {NEGOTIATION_STATUSES.map((st) => <option key={st} value={st}>{NEGOTIATION_LABELS[st]}</option>)}
+                      </select>
+                    </label>
+                    {d.statusSource === 'role' && <small className="muted">from the role you picked</small>}
+                    {linkable && targets.length > 0 && (
+                      <label className="field field--inline field--small">
+                        <span>Applies to</span>
+                        <select value={d.appliesTo ?? ''} disabled={!canUpload} onChange={(e) => update(`/documents/${d.id}/link`, { targetDocumentId: e.target.value || null })}>
+                          <option value="">Any base agreement</option>
+                          {targets.map((t) => <option key={t.id} value={t.id}>{t.title}</option>)}
+                        </select>
+                      </label>
+                    )}
+                  </div>
                 </div>
-                {unreadable ? <span className="badge badge--bad">Couldn't read</span> : <Link className="btn" to={`/projects/${projectId}/documents/${d.id}`}>Open</Link>}
+                <div className="doc-item__actions">
+                  {!unreadable && <Link className="btn" to={`/projects/${projectId}/documents/${d.id}`}>Open</Link>}
+                  {unreadable && <span className="badge badge--bad">Couldn't read</span>}
+                  {canUpload && (
+                    <button className="btn btn--quiet" disabled={busy} onClick={() => { setVersionFor(d); versionInput.current?.click(); }}>
+                      New version
+                    </button>
+                  )}
+                </div>
               </div>
             </li>
           );
         })}
       </ul>
+      <p className="muted small">
+        Status is only ever set by you. A file name or the word "final" never makes a document count as agreed.
+      </p>
     </section>
   );
 }

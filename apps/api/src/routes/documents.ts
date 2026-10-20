@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import {
   type BlockAnchor, type BlockFlag, type BlockKind, DOCUMENT_ROLES, type DocumentRole, type DocumentSummary,
   type DocumentVersionSummary, type ExpertiseLevel, type ExtractionBlock, POLICY_DISCLAIMER,
-  TOPICS, TOPIC_LABELS, type ClauseExplanation, type Topic, type TopicBlockRef, type TopicsResponse,
+  TOPICS, TOPIC_LABELS, type ClauseExplanation, type NegotiationStatus, type Topic, type TopicBlockRef, type TopicsResponse,
 } from '@easycontract/shared';
 import type { Db } from '../db/index.ts';
 import { newId, now } from '../db/index.ts';
@@ -14,14 +14,14 @@ import { readPdfPageText } from '../extraction/pdf.ts';
 import { loadProject } from './projects.ts';
 import { classifyBlocks } from '../analysis/topics.ts';
 
-interface VersionRow {
+export interface VersionRow {
   id: string; document_id: string; version_number: number; file_name: string; mime_type: string; size_bytes: number;
   sha256: string; storage_key: string; page_count: number | null; status: 'ready' | 'unreadable'; quality_message: string | null; created_at: string;
 }
-interface DocumentRow { id: string; project_id: string; title: string; role: DocumentRole; created_at: string }
+export interface DocumentRow { id: string; project_id: string; title: string; role: DocumentRole; created_at: string }
 interface BlockRow { id: string; version_id: string; seq: number; kind: BlockKind; clause_number: string | null; text: string; anchor_json: string; flags_json: string }
 
-const toVersion = (v: VersionRow): DocumentVersionSummary => ({
+export const toVersion = (v: VersionRow): DocumentVersionSummary => ({
   id: v.id, versionNumber: v.version_number, fileName: v.file_name, mimeType: v.mime_type, sizeBytes: v.size_bytes,
   sha256: v.sha256, pageCount: v.page_count, status: v.status, qualityMessage: v.quality_message, createdAt: v.created_at,
 });
@@ -31,10 +31,24 @@ const toBlock = (b: BlockRow): ExtractionBlock => ({
   anchor: JSON.parse(b.anchor_json) as BlockAnchor, flags: JSON.parse(b.flags_json) as BlockFlag[],
 });
 
-function latestVersion(db: Db, tenantId: string, documentId: string) {
+export function latestVersion(db: Db, tenantId: string, documentId: string) {
   return db.prepare(
     `SELECT * FROM document_versions WHERE document_id = ? AND tenant_id = ? ORDER BY version_number DESC LIMIT 1`,
   ).get(documentId, tenantId) as VersionRow | undefined;
+}
+
+/**
+ * A document's negotiation status. Only a person sets it: either directly, or
+ * by labelling the document a signed copy or a proposal. File names and words
+ * like "final" are never consulted.
+ */
+export function negotiationStatus(db: Db, tenantId: string, doc: { id: string; role: DocumentRole }): { status: NegotiationStatus; source: 'set' | 'role' | 'none' } {
+  const row = db.prepare(`SELECT negotiation_status FROM document_statuses WHERE document_id = ? AND tenant_id = ?`)
+    .get(doc.id, tenantId) as { negotiation_status: NegotiationStatus } | undefined;
+  if (row) return { status: row.negotiation_status, source: 'set' };
+  if (doc.role === 'signed_copy') return { status: 'signed', source: 'role' };
+  if (doc.role === 'proposal') return { status: 'proposed', source: 'role' };
+  return { status: 'unknown', source: 'none' };
 }
 
 export function listDocuments(db: Db, tenantId: string, projectId: string): DocumentSummary[] {
@@ -43,12 +57,18 @@ export function listDocuments(db: Db, tenantId: string, projectId: string): Docu
   ).all(projectId, tenantId) as unknown as DocumentRow[];
   return docs.map((d) => {
     const v = latestVersion(db, tenantId, d.id);
-    return { id: d.id, projectId: d.project_id, title: d.title, role: d.role, createdAt: d.created_at, latestVersion: v ? toVersion(v) : null };
+    const { status, source } = negotiationStatus(db, tenantId, d);
+    const count = (db.prepare(`SELECT COUNT(*) AS n FROM document_versions WHERE document_id = ? AND tenant_id = ?`).get(d.id, tenantId) as { n: number }).n;
+    const link = db.prepare(`SELECT target_document_id FROM document_links WHERE document_id = ? AND tenant_id = ?`).get(d.id, tenantId) as { target_document_id: string } | undefined;
+    return {
+      id: d.id, projectId: d.project_id, title: d.title, role: d.role, createdAt: d.created_at, latestVersion: v ? toVersion(v) : null,
+      versionCount: count, negotiationStatus: status, statusSource: source, appliesTo: link?.target_document_id ?? null,
+    };
   });
 }
 
 /** Loads a document in the caller's tenant, checking project-level access. Otherwise 404. */
-function loadDocument(db: Db, actor: Actor, documentId: string) {
+export function loadDocument(db: Db, actor: Actor, documentId: string) {
   const doc = db.prepare(`SELECT id, project_id, title, role, created_at FROM documents WHERE id = ? AND tenant_id = ?`)
     .get(documentId, actor.tenantId) as DocumentRow | undefined;
   if (!doc) {
@@ -73,12 +93,12 @@ export function describeLocation(anchor: BlockAnchor, level: ExpertiseLevel): st
 const MAX_TITLE = 200;
 const EXCERPT_CHARS = 160;
 
-function versionBlocks(db: Db, tenantId: string, versionId: string): ExtractionBlock[] {
+export function versionBlocks(db: Db, tenantId: string, versionId: string): ExtractionBlock[] {
   return (db.prepare(`SELECT * FROM extraction_blocks WHERE version_id = ? AND tenant_id = ? ORDER BY seq`)
     .all(versionId, tenantId) as unknown as BlockRow[]).map(toBlock);
 }
 
-function excerpt(text: string, clauseNumber: string | null) {
+export function excerpt(text: string, clauseNumber: string | null) {
   // PDF text often starts with its own typed number; the card already shows it.
   let t = text.replace(/\s+/g, ' ');
   if (clauseNumber) t = t.replace(new RegExp(`^\\s*(?:clause|section|article)?\\s*${clauseNumber.replace(/[.()]/g, '\\$&')}[.)]?\\s+`, 'i'), '');

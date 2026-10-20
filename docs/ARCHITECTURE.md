@@ -13,7 +13,8 @@
 ```
 apps/api        Fastify API on :3001, SQLite via node:sqlite
   src/db          schema, seed
-  src/analysis    topic sorting, quoted facts, explanation templates
+  src/analysis    topic sorting, quoted facts, explanation templates, clause alignment,
+                  amendments, letter matching, party checks
   src/extraction  PDF (pdfjs-dist) and DOCX (jszip + xmldom) extraction, quality checks, flags
   src/lib         access policy, storage, audit and usage helpers
   src/interfaces  extension points (see below)
@@ -55,6 +56,15 @@ Quality checks report files as "couldn't read this" (not as a success) when they
 `src/analysis/topics.ts` scores each block against keyword rules per topic. Headings ("3 Fees") add weight to the clauses numbered under them. Tracked deletions are left out because they are not current wording. Results are computed on request from stored blocks, so they always match the latest rules.
 
 `src/analysis/explanations.ts` holds fixed templates per topic (Plain and Legal). `src/analysis/facts.ts` quotes periods, amounts, percentages, placeholders and defined terms verbatim. A test checks every explanation names its source block, every quote is a substring of that block, and no number appears in an explanation unless it appears in the clause.
+
+## Comparison and amendments
+
+- `src/analysis/align.ts` pairs clauses by wording similarity (strongest matches first, ties to the nearest position) and makes word-level diffs. Tracked changes are left out and reported as a warning.
+- `src/analysis/amendments.ts` reads instructions with fixed patterns. Anything that mentions a clause and a change but doesn't fit a pattern is reported as "couldn't read this instruction reliably", never guessed. New wording is always quoted from the amendment.
+- An instruction counts as **incorporated** when the latest version of the base already says it. The effective position is that latest version plus the agreed instructions that are not yet incorporated, applied oldest amendment first.
+- Negotiation status lives in `document_statuses` and is only written by a person (`PUT /api/documents/:id/status`). With no row, a document labelled "signed copy" counts as signed and a "proposal" as proposed, because a person picked that role; everything else is "not confirmed". Only *agreed* and *signed* make wording authoritative.
+- `document_links` records which agreement an amendment or letter applies to. Unlinked amendments apply to whichever base is chosen.
+- `src/analysis/letters.ts` scores each candidate agreement on party names, references and "agreement dated …" phrases, then picks the clause by topic, heading and wording. `src/analysis/parties.ts` finds company names and defined terms, and flags named parties swapped for undefined terms.
 
 ## Extension points
 

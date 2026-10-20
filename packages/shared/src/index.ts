@@ -95,6 +95,12 @@ export interface DocumentSummary {
   role: DocumentRole;
   createdAt: string;
   latestVersion: DocumentVersionSummary | null;
+  versionCount: number;
+  negotiationStatus: NegotiationStatus;
+  /** 'set' when a person chose it; 'role' when it follows from the role they picked. */
+  statusSource: 'set' | 'role' | 'none';
+  /** For amendments and letters: the agreement they apply to, if a person linked one. */
+  appliesTo: string | null;
 }
 
 export interface ProjectSummary {
@@ -212,6 +218,151 @@ export interface TopicsResponse {
   /** Topics with no matching clause: shown as "not stated" rather than hidden. */
   notFound: Topic[];
   unsorted: TopicBlockRef[];
+}
+
+// ---------- Stage 3: comparison and amendments ----------
+
+/**
+ * Where a document stands in negotiation. Set by a person, never inferred
+ * from a file name or words like "final".
+ */
+export const NEGOTIATION_STATUSES = ['unknown', 'draft', 'proposed', 'agreed', 'signed', 'rejected'] as const;
+export type NegotiationStatus = (typeof NEGOTIATION_STATUSES)[number];
+export const NEGOTIATION_LABELS: Record<NegotiationStatus, string> = {
+  unknown: 'Not confirmed',
+  draft: 'Draft',
+  proposed: 'Proposed',
+  agreed: 'Agreed',
+  signed: 'Signed',
+  rejected: 'Rejected',
+};
+/** Only these statuses make wording count as agreed. */
+export const AUTHORITATIVE_STATUSES: readonly NegotiationStatus[] = ['agreed', 'signed'];
+
+export interface ClauseSide {
+  blockId: string;
+  clauseNumber: string | null;
+  text: string;
+}
+
+export type DiffOp = { op: 'same' | 'add' | 'remove'; text: string };
+
+export type CompareRowStatus = 'unchanged' | 'changed' | 'renumbered' | 'added' | 'removed';
+
+export interface CompareRow {
+  status: CompareRowStatus;
+  /** True when a matched clause has a different number (it may also be changed). */
+  renumbered: boolean;
+  left: ClauseSide | null;
+  right: ClauseSide | null;
+  similarity: number | null;
+  diff: DiffOp[] | null;
+}
+
+export interface PartyChange {
+  leftBlockId: string;
+  rightBlockId: string;
+  from: string;
+  to: string;
+  message: string;
+}
+
+export interface DocumentRef {
+  documentId: string;
+  versionId: string;
+  title: string;
+  versionNumber: number;
+  negotiationStatus: NegotiationStatus;
+}
+
+export interface CompareResponse {
+  left: DocumentRef;
+  right: DocumentRef;
+  rows: CompareRow[];
+  partyChanges: PartyChange[];
+  summary: Record<CompareRowStatus, number>;
+  warnings: string[];
+}
+
+export type ProposedSignedStatus = 'same' | 'changed_before_signing' | 'proposed_only' | 'signed_only';
+
+/** Proposed and agreed wording are kept in separate fields and never merged. */
+export interface ProposedSignedRow {
+  status: ProposedSignedStatus;
+  proposed: ClauseSide | null;
+  agreed: ClauseSide | null;
+  diff: DiffOp[] | null;
+}
+
+export interface ProposedSignedResponse {
+  proposed: DocumentRef;
+  agreed: DocumentRef;
+  rows: ProposedSignedRow[];
+  partyChanges: PartyChange[];
+  warnings: string[];
+}
+
+export type InstructionKind = 'replace_clause' | 'replace_words' | 'delete_clause' | 'insert_clause' | 'unrecognised';
+
+export interface AmendmentInstruction {
+  index: number;
+  kind: InstructionKind;
+  clauseNumber: string | null;
+  /** For replace_words: the words being replaced. */
+  from: string | null;
+  /** New wording, quoted exactly from the amendment. */
+  to: string | null;
+  sourceBlockIds: string[];
+  sourceText: string;
+}
+
+export type InstructionState =
+  | 'incorporated' // the latest base version already reflects it
+  | 'applied' // applied on top of the base to work out the effective position
+  | 'pending' // amendment not agreed, so not applied
+  | 'cannot_apply'; // e.g. clause not in the base
+
+export interface InstructionResult extends AmendmentInstruction {
+  state: InstructionState;
+  explanation: string;
+}
+
+export type IncorporationStatus = 'incorporated' | 'partly_incorporated' | 'not_incorporated' | 'nothing_to_incorporate';
+
+export interface AmendmentSummary {
+  document: DocumentRef;
+  negotiationStatus: NegotiationStatus;
+  incorporation: IncorporationStatus;
+  incorporatedCount: number;
+  instructionCount: number;
+  instructions: InstructionResult[];
+}
+
+export interface EffectiveClause {
+  clauseNumber: string | null;
+  text: string;
+  baseBlockId: string | null;
+  /** Agreed changes applied on top of the base, oldest first. */
+  changedBy: { documentId: string; title: string; instructionIndex: number; sourceBlockIds: string[] }[];
+  deleted: boolean;
+}
+
+export interface EffectivePositionResponse {
+  base: DocumentRef;
+  baseWarning: string | null;
+  clauses: EffectiveClause[];
+  amendments: AmendmentSummary[];
+  partyChanges: PartyChange[];
+  warnings: string[];
+}
+
+export interface LetterMatchResponse {
+  letter: DocumentRef;
+  status: 'matched' | 'uncertain' | 'not_matched';
+  agreement: { documentId: string; title: string } | null;
+  clause: { blockId: string; clauseNumber: string | null; excerpt: string } | null;
+  reasons: string[];
+  problems: string[];
 }
 
 export const UPLOAD_LIMITS = {

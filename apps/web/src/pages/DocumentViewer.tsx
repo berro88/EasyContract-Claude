@@ -74,6 +74,7 @@ export function DocumentViewer() {
           <button className={view === 'findings' ? 'is-active' : ''} onClick={() => go({ view: 'findings' })}>
             <span>Findings</span>
           </button>
+          <Link className="sidenav__link" to={`/projects/${projectId}/compare`}>Compare →</Link>
         </nav>
 
         <div className="viewer__main">

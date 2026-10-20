@@ -45,3 +45,34 @@ for (const s of SECTIONS) {
 }
 writeFileSync(join(out, 'sample-master-services-agreement.docx'), await makeDocx(msa, { numbering: true }));
 console.log(`Wrote synthetic samples to ${out}`);
+
+// Stage 3: an amendment to the master services agreement, a proposal whose
+// file name says FINAL (it is still only a proposal), and an increase letter.
+writeFileSync(join(out, 'sample-amendment-1.docx'), await makeDocx([
+  { text: 'First Amendment to the Synthetic Master Services Agreement', style: 'Heading1' },
+  'Clause 3.1 is amended by replacing "R12,000" with "R13,500".',
+  'Clause 2.1 is deleted and replaced with the following:',
+  '"This agreement starts on the Effective Date and runs for an initial term of 36 months."',
+  'A new clause 8.2 is inserted: "The Client may terminate immediately if the Supplier becomes insolvent."',
+  'All other terms of the agreement remain unchanged.',
+]));
+
+const proposal: DocxParagraph[] = [{ text: 'Synthetic Master Services Agreement (proposal)', style: 'Heading1' }];
+for (const s of SECTIONS) {
+  proposal.push({ text: s.heading, num: { numId: 1, ilvl: 0 } });
+  for (const c of s.clauses) {
+    proposal.push({
+      text: c.replace('R12,000', 'R15,000').replace('aggregate liability shall not exceed the fees paid in the 12 months', 'aggregate liability shall not exceed the fees paid in the 3 months'),
+      num: { numId: 1, ilvl: 1 },
+    });
+  }
+}
+writeFileSync(join(out, 'sample-msa-proposal-FINAL.docx'), await makeDocx(proposal, { numbering: true }));
+
+writeFileSync(join(out, 'sample-msa-increase-letter.pdf'), await makePdf([[
+  'Example Supplier (Pty) Ltd', '', 'Dear Sample Client Ltd,', '',
+  'Annual fee escalation', '',
+  'Under our services agreement, your monthly fee escalates on each anniversary.',
+  'The new fee will apply from the next invoice.', '',
+  'Yours faithfully,', 'Example Supplier (Pty) Ltd',
+]]));
