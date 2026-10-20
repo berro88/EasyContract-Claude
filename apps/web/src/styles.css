@@ -276,6 +276,29 @@ a.list__item:hover { border-color: var(--accent); }
 .decision__note { width: 100%; font-size: 0.9rem; resize: vertical; }
 .decision__foot { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 
+/* ---------- Library ---------- */
+.library { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr); gap: 1.25rem; align-items: start; }
+.library__list { display: grid; gap: 0.75rem; }
+.library__list h3 { margin: 0.5rem 0 0.35rem; font-size: 0.95rem; }
+.list__btn { width: 100%; font: inherit; text-align: left; cursor: pointer; }
+.list__btn--plain { border: 0; background: transparent; font: inherit; text-align: left; cursor: pointer; padding: 0; color: var(--text); }
+.list__item.is-selected { border-color: var(--accent); background: var(--accent-soft); }
+.chip--example { background: #fff4d6; border-color: #e8c766; color: #4a3300; font-weight: 700; }
+.chip--active { background: #dcf5e3; border-color: #9fd8b2; color: #0f5130; font-weight: 700; }
+.active-pb { display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin: 0; font-size: 0.9rem; }
+.versions { padding-left: 1.2rem; display: grid; gap: 0.6rem; }
+.position { border-top: 1px solid var(--line); padding-top: 0.5rem; }
+.position p { margin: 0.35rem 0; }
+.pos-label { display: inline-block; min-width: 5.5rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.pos-label--pref { color: #1f7a45; }
+.pos-label--fall { color: #8a5a00; }
+.pos-label--red { color: #b42318; }
+.position-edit { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.5rem 0.75rem; }
+.position-edit summary { cursor: pointer; font-weight: 600; }
+.position-edit .field { margin-top: 0.5rem; }
+.finding__ref { margin: 0.4rem 0; padding: 0.4rem 0.6rem; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 4px; font-size: 0.9rem; display: grid; gap: 0.15rem; }
+@media (max-width: 860px) { .library { grid-template-columns: 1fr; } }
+
 /* ---------- Project document controls ---------- */
 .doc-item { align-items: flex-start; }
 .doc-item__main { min-width: 0; flex: 1; }

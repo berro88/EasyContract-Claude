@@ -173,6 +173,30 @@ CREATE TABLE IF NOT EXISTS audit_events (
   created_at TEXT NOT NULL
 );
 
+-- Clause library. Each edit adds a version; old versions are never changed.
+CREATE TABLE IF NOT EXISTS library_clauses (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  topic TEXT NOT NULL,
+  title TEXT NOT NULL,
+  is_example INTEGER NOT NULL DEFAULT 0,
+  created_by TEXT REFERENCES users(id),
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS library_clause_versions (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  clause_id TEXT NOT NULL REFERENCES library_clauses(id),
+  version INTEGER NOT NULL,
+  text TEXT NOT NULL,
+  guidance TEXT NOT NULL DEFAULT '',
+  created_by TEXT REFERENCES users(id),
+  created_at TEXT NOT NULL,
+  UNIQUE (clause_id, version)
+);
+
+-- Playbooks: rows with the same tenant and name are versions of one playbook.
+-- At most one version per tenant is active. Positions belong to a version.
 CREATE TABLE IF NOT EXISTS playbooks (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL REFERENCES tenants(id),

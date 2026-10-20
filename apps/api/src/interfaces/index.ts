@@ -1,6 +1,6 @@
-// Extension points. Only StorageEncryption (IdentityEncryption) and AiProvider
-// (DeterministicProvider) have implementations today; the rest are contracts
-// that later stages fill in.
+// Extension points. StorageEncryption (IdentityEncryption), AiProvider
+// (DeterministicProvider) and PlaybookSource (DbPlaybookSource) have
+// implementations; the rest are contracts for later.
 
 import type { BlockKind, BlockNote, ClauseExplanation, ExpertiseLevel, Topic } from '@easycontract/shared';
 
@@ -39,15 +39,16 @@ export interface AiProvider {
 }
 
 export interface PlaybookPosition {
-  topic: string;
+  topic: Topic;
   preferredText: string | null;
   fallbackText: string | null;
   redLine: string | null;
 }
 
-/** Stage 6: where playbook positions come from (the tenant's library, a file, a connector). */
+/** Where playbook positions come from (the tenant's library today; a file or a connector later). */
 export interface PlaybookSource {
   activePositions(tenantId: string): Promise<PlaybookPosition[]>;
+  activePlaybook(tenantId: string): Promise<{ id: string; name: string; version: number; isExample: boolean; positions: PlaybookPosition[] } | null>;
 }
 
 /** Later: writes a redlined Word counter-draft from block anchors. */

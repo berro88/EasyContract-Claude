@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Role } from '@easycontract/shared';
 import type { Db } from '../db/index.ts';
 import { newId, now } from '../db/index.ts';
-import type { AiProvider } from '../interfaces/index.ts';
+import type { AiProvider, PlaybookSource } from '../interfaces/index.ts';
 import type { FileStorage } from './storage.ts';
 import type { Config } from '../config.ts';
 import { type Action, can } from './access-policy.ts';
@@ -11,6 +11,7 @@ export interface Services {
   db: Db;
   storage: FileStorage;
   ai: AiProvider;
+  playbooks: PlaybookSource;
   config: Config;
 }
 

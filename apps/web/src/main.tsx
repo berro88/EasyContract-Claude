@@ -11,6 +11,7 @@ import { ProjectPage } from './pages/Project.tsx';
 import { DocumentViewer } from './pages/DocumentViewer.tsx';
 import { PolicyPage } from './pages/Policy.tsx';
 import { Compare } from './pages/Compare.tsx';
+import { Library } from './pages/Library.tsx';
 import './styles.css';
 
 createRoot(document.getElementById('root')!).render(
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="create" element={<CreateComingSoon />} />
             <Route path="profile" element={<CompanyProfilePage />} />
             <Route path="policy" element={<PolicyPage />} />
+            <Route path="library" element={<Library />} />
             <Route path="projects" element={<Projects />} />
             <Route path="projects/new" element={<Projects startNew />} />
             <Route path="projects/:projectId" element={<ProjectPage />} />

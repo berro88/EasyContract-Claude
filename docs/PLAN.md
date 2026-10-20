@@ -14,8 +14,8 @@ We build one stage at a time. Every stage ends with a working flow and tests. No
 | 3 | Version comparison, amendment reconciliation, letter matching | Done |
 | 4 | Clause interactions and red/amber/green risk findings | Done |
 | 5 | Human decisions on findings; Word, PDF (and Excel) exports with the disclaimer | Done |
-| 6 | Versioned clause library and playbooks | Next |
-| 7 | Contract Wizard (create a contract) | |
+| 6 | Versioned clause library and playbooks | Done |
+| 7 | Contract Wizard (create a contract) | Next |
 | 8 | Sign-up with policy acceptance, invites, hardening, .doc and optional OCR, private-preview deploy config | |
 
 ## Stage 1 scope
@@ -88,6 +88,15 @@ In scope:
 
 Out of scope for Stage 5: playbooks (Stage 6), drafting (Stage 7).
 
+## Stage 6 scope
+
+In scope:
+- **Clause library:** clauses by topic with wording and guidance. Editing saves a new version; earlier versions are kept unchanged and shown as history.
+- **Playbooks:** for each topic, preferred wording, fallback wording and a red line. Editing saves the next version; one version across the company is active at a time. Red lines can name exact words in "quotes".
+- **Playbook-driven findings:** contracts are compared with the active playbook, read through `PlaybookSource`: green when a clause matches the preferred wording, amber for the fallback, red when it crosses a red line, amber when it differs from both or the topic is missing. The playbook wording is shown alongside, clearly labelled as coming from the playbook.
+- **No real legal content is seeded.** The demo company gets an inactive "EXAMPLE playbook (illustrative, not legal advice)" and example clauses, all labelled.
+- Only owners and admins can change the library.
+
 ## Try it
 
 ```bash
@@ -96,4 +105,4 @@ pnpm --filter @easycontract/api samples   # writes synthetic contracts to ./samp
 pnpm dev                                   # API on :3001, web on :5173
 ```
 
-Open http://localhost:5173, choose **Understand a contract**, and upload the files from `samples/`. `sample-master-services-agreement.docx` has one section per topic. For Stage 3, add `sample-amendment-1.docx` (role: Amendment), `sample-msa-proposal-FINAL.docx` (Proposal) and `sample-msa-increase-letter.pdf` (Increase letter), mark the agreement and amendment as Signed, then open **Compare and reconcile**. For Stage 4, open `sample-risky-transport-agreement.docx` and choose **Findings**.
+Open http://localhost:5173, choose **Understand a contract**, and upload the files from `samples/`. `sample-master-services-agreement.docx` has one section per topic. For Stage 3, add `sample-amendment-1.docx` (role: Amendment), `sample-msa-proposal-FINAL.docx` (Proposal) and `sample-msa-increase-letter.pdf` (Increase letter), mark the agreement and amendment as Signed, then open **Compare and reconcile**. For Stage 4, open `sample-risky-transport-agreement.docx` and choose **Findings**. For Stage 6, open **Library → Playbooks**, choose **Use this version** on the example playbook, then look at the Findings of any agreement.

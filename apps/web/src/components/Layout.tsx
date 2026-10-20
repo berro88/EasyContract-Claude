@@ -35,6 +35,7 @@ export function Layout() {
         </NavLink>
         <nav className="topnav">
           <NavLink to="/projects">Projects</NavLink>
+          <NavLink to="/library">Library</NavLink>
           <NavLink to="/profile">Company profile</NavLink>
         </nav>
         <div className="topbar__prefs">

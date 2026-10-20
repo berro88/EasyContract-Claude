@@ -1,5 +1,6 @@
 import { POLICY_KEY, POLICY_VERSION } from '@easycontract/shared';
 import { type Db, newId, now } from './index.ts';
+import { seedExamples } from '../library/store.ts';
 
 export const SEED = {
   tenantId: 'tenant_demo',
@@ -45,4 +46,6 @@ export function seed(db: Db) {
         newId('pol'), userId, tenantId, POLICY_KEY, POLICY_VERSION, t);
     }
   }
+  // Labelled example library content, inactive, for the demo company only.
+  seedExamples(db, SEED.tenantId);
 }

@@ -10,6 +10,7 @@ import { openDb } from '../src/db/index.ts';
 import { SEED, seed } from '../src/db/seed.ts';
 import { FileStorage } from '../src/lib/storage.ts';
 import { DeterministicProvider } from '../src/providers/deterministic.ts';
+import { DbPlaybookSource } from '../src/library/store.ts';
 
 export { SEED };
 
@@ -18,7 +19,7 @@ export async function makeApp() {
   const config = { ...loadConfig({ DATA_DIR: dataDir }), dbPath: ':memory:' };
   const db = openDb(':memory:');
   seed(db);
-  const app = await buildApp({ db, config, storage: new FileStorage(config.storageDir), ai: new DeterministicProvider() });
+  const app = await buildApp({ db, config, storage: new FileStorage(config.storageDir), ai: new DeterministicProvider(), playbooks: new DbPlaybookSource(db) });
   return { app, db, config };
 }
 

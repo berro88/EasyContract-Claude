@@ -378,6 +378,7 @@ export const FINDING_RULES = [
   'termination_cure_conflict',
   'missing_reference',
   'missing_essentials',
+  'playbook_deviation',
 ] as const;
 export type FindingRule = (typeof FINDING_RULES)[number];
 export const FINDING_RULE_LABELS: Record<FindingRule, string> = {
@@ -387,6 +388,7 @@ export const FINDING_RULE_LABELS: Record<FindingRule, string> = {
   termination_cure_conflict: 'Termination and cure periods',
   missing_reference: 'Documents referred to but not provided',
   missing_essentials: 'Essential terms',
+  playbook_deviation: 'Comparison with your playbook',
 };
 
 export interface FindingPassage {
@@ -429,6 +431,8 @@ export interface Finding {
   /** When a figure depends on something the document doesn't state, why it can't be worked out. */
   cannotWorkOut: string | null;
   passages: FindingPassage[];
+  /** Wording from outside the document that the finding compares against, e.g. a playbook position. Clearly labelled. */
+  reference?: { label: string; text: string } | null;
 }
 
 export interface FindingsResponse {
@@ -439,6 +443,53 @@ export interface FindingsResponse {
   summary: Record<Severity, number>;
   rulesChecked: { rule: FindingRule; label: string }[];
 }
+
+// ---------- Stage 6: clause library and playbooks ----------
+
+export interface LibraryClauseVersion {
+  id: string;
+  version: number;
+  text: string;
+  guidance: string;
+  createdBy: string | null;
+  createdAt: string;
+}
+
+export interface LibraryClause {
+  id: string;
+  topic: Topic;
+  title: string;
+  isExample: boolean;
+  latest: LibraryClauseVersion;
+  versionCount: number;
+}
+
+export interface PlaybookPositionInput {
+  topic: Topic;
+  preferredText: string;
+  fallbackText: string;
+  /** What must never be accepted. Words in "quotes" are matched exactly. */
+  redLine: string;
+}
+
+export interface PlaybookVersion {
+  id: string;
+  name: string;
+  version: number;
+  isActive: boolean;
+  isExample: boolean;
+  createdAt: string;
+  positions: PlaybookPositionInput[];
+}
+
+export interface PlaybookSeries {
+  name: string;
+  isExample: boolean;
+  versions: { id: string; version: number; isActive: boolean; createdAt: string; positionCount: number }[];
+}
+
+/** Example content is labelled with this prefix and never presented as real legal content. */
+export const EXAMPLE_PREFIX = 'EXAMPLE';
 
 export const UPLOAD_LIMITS = {
   maxBytes: 20 * 1024 * 1024,

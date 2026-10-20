@@ -12,6 +12,7 @@ export type Action =
   | 'document.upload'
   | 'comment.create'
   | 'finding.decide'
+  | 'library.edit'
   | 'member.invite';
 
 const MATRIX: Record<Action, readonly Role[]> = {
@@ -23,6 +24,7 @@ const MATRIX: Record<Action, readonly Role[]> = {
   'document.upload': ['owner', 'admin', 'reviewer'],
   'comment.create': ['owner', 'admin', 'reviewer', 'commenter'],
   'finding.decide': ['owner', 'admin', 'reviewer'],
+  'library.edit': ['owner', 'admin'],
   'member.invite': ['owner', 'admin'],
 };
 

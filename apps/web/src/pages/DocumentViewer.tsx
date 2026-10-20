@@ -252,6 +252,9 @@ function FindingsList({ documentId, data, error, selectedId, canDecide, onSelect
             <h3>{f.title}</h3>
           </header>
           <p>{level === 'legal' ? f.legal : f.plain}</p>
+          {f.reference && (
+            <div className="finding__ref"><span className="muted small">{f.reference.label}</span><q>{f.reference.text}</q></div>
+          )}
           {f.cannotWorkOut && <p className="finding__cannot"><strong>Can't be worked out:</strong> {f.cannotWorkOut}</p>}
           {f.passages.length > 0 && (
             <ul className="finding__passages">

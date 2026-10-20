@@ -6,6 +6,7 @@ import {
 import type { Db } from '../db/index.ts';
 import { newId, now } from '../db/index.ts';
 import { type Actor, type Services, HttpError, audit, notFound, requireCan } from '../lib/context.ts';
+import type { PlaybookSource } from '../interfaces/index.ts';
 import { runFindings } from '../analysis/findings.ts';
 import { type DocumentRow, type VersionRow, latestVersion, listDocuments, loadDocument, versionBlocks } from './documents.ts';
 import { loadProject } from './projects.ts';
@@ -20,11 +21,12 @@ interface DecisionRow {
 
 const MAX_NOTE = 2000;
 
-function computeFindings(db: Db, actor: Actor, doc: DocumentRow, v: VersionRow) {
+async function computeFindings(db: Db, playbooks: PlaybookSource, actor: Actor, doc: DocumentRow, v: VersionRow) {
   const projectDocuments = listDocuments(db, actor.tenantId, doc.project_id)
     .filter((d) => d.id !== doc.id && d.latestVersion?.status === 'ready')
     .map((d) => ({ title: d.title, role: d.role }));
-  return runFindings({ versionId: v.id, role: doc.role, title: doc.title, blocks: versionBlocks(db, actor.tenantId, v.id), projectDocuments });
+  const playbook = await playbooks.activePlaybook(actor.tenantId);
+  return runFindings({ versionId: v.id, role: doc.role, title: doc.title, blocks: versionBlocks(db, actor.tenantId, v.id), projectDocuments, playbook });
 }
 
 /** Attaches saved decisions. A decision follows its finding across reruns and new versions. */
@@ -73,6 +75,7 @@ function reviewReport(db: Db, actor: Actor, doc: DocumentRow, v: VersionRow, res
     blocks.push({ type: 'paragraph', text: f.plain });
     blocks.push({ type: 'paragraph', text: `In detail: ${f.legal}`, muted: true });
     if (f.cannotWorkOut) blocks.push({ type: 'paragraph', text: `Can't be worked out: ${f.cannotWorkOut}`, bold: true });
+    if (f.reference) blocks.push({ type: 'quote', label: `${f.reference.label}:`, text: f.reference.text });
     for (const p of f.passages) {
       blocks.push({ type: 'quote', label: `${p.role === 'related' ? 'Related, ' : ''}${p.clauseNumber ? `clause ${p.clauseNumber}` : 'passage'}:`, text: p.excerpt });
     }
@@ -145,12 +148,12 @@ const CONTENT_TYPES = {
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 } as const;
 
-export const findingsRoutes = ({ db }: Services) => async (app: FastifyInstance) => {
+export const findingsRoutes = ({ db, playbooks }: Services) => async (app: FastifyInstance) => {
   /** Risk findings for a document's latest version, with any saved decisions. */
   app.get('/api/documents/:documentId/findings', async (req): Promise<FindingsResponse> => {
     const { documentId } = req.params as { documentId: string };
     const { doc, v } = loadReadable(db, req.actor, documentId);
-    return withDecisions(db, req.actor.tenantId, documentId, computeFindings(db, req.actor, doc, v));
+    return withDecisions(db, req.actor.tenantId, documentId, (await computeFindings(db, playbooks, req.actor, doc, v)));
   });
 
   /** Records accept / reject / negotiate and a note against a finding. */
@@ -167,7 +170,7 @@ export const findingsRoutes = ({ db }: Services) => async (app: FastifyInstance)
     if (note.length > MAX_NOTE) throw new HttpError(400, `Keep the note under ${MAX_NOTE} characters.`);
 
     // The finding must exist now; its current wording is what the decision is about.
-    const finding = computeFindings(db, req.actor, doc, v).findings.find((f) => f.key === findingKey);
+    const finding = (await computeFindings(db, playbooks, req.actor, doc, v)).findings.find((f) => f.key === findingKey);
     if (!finding) throw new HttpError(404, 'This finding no longer appears. Refresh the findings.');
 
     if (decision === null && !note) {
@@ -183,7 +186,7 @@ export const findingsRoutes = ({ db }: Services) => async (app: FastifyInstance)
     // Metadata only: the note is never written to the audit log.
     audit(db, { tenantId: req.actor.tenantId, userId: req.actor.userId, action: 'finding.decision', resourceType: 'documents', resourceId: documentId,
       outcome: 'allowed', metadata: { rule: finding.rule, decision: (decision as string | null) ?? 'cleared', hasNote: !!note } });
-    const updated = withDecisions(db, req.actor.tenantId, documentId, computeFindings(db, req.actor, doc, v));
+    const updated = withDecisions(db, req.actor.tenantId, documentId, (await computeFindings(db, playbooks, req.actor, doc, v)));
     return updated.findings.find((f) => f.key === findingKey)!.decision;
   });
 
@@ -193,7 +196,7 @@ export const findingsRoutes = ({ db }: Services) => async (app: FastifyInstance)
     const { format } = req.query as { format?: string };
     if (format !== 'docx' && format !== 'pdf' && format !== 'xlsx') throw new HttpError(400, 'Choose Word, PDF or Excel.');
     const { doc, v } = loadReadable(db, req.actor, documentId);
-    const res = withDecisions(db, req.actor.tenantId, documentId, computeFindings(db, req.actor, doc, v));
+    const res = withDecisions(db, req.actor.tenantId, documentId, (await computeFindings(db, playbooks, req.actor, doc, v)));
     const bytes = format === 'xlsx'
       ? await renderXlsx(reviewWorkbook(doc, v, res), POLICY_DISCLAIMER)
       : format === 'docx' ? await renderDocx(reviewReport(db, req.actor, doc, v, res)) : await renderPdf(reviewReport(db, req.actor, doc, v, res));

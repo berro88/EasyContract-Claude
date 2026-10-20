@@ -7,7 +7,8 @@ import {
   FINDING_RULES, FINDING_RULE_LABELS, TOPIC_LABELS, type DocumentRole, type ExtractionBlock, type Finding, type FindingPassage,
   type FindingRule, type FindingsResponse, type Severity, type Topic,
 } from '@easycontract/shared';
-import { comparable, stripNumber } from './align.ts';
+import { comparable, similarity, stripNumber } from './align.ts';
+import type { PlaybookPosition } from '../interfaces/index.ts';
 import { classifyBlocks, looksLikeHeading } from './topics.ts';
 
 export interface FindingsInput {
@@ -17,6 +18,8 @@ export interface FindingsInput {
   blocks: ExtractionBlock[];
   /** Other readable documents in the same project. */
   projectDocuments: { title: string; role: DocumentRole }[];
+  /** The tenant's active playbook, read through PlaybookSource. */
+  playbook?: { name: string; version: number; isExample: boolean; positions: PlaybookPosition[] } | null;
 }
 
 interface Ctx {
@@ -32,7 +35,8 @@ const excerpt = (b: ExtractionBlock) => {
   return t.length > EXCERPT ? `${t.slice(0, EXCERPT).trimEnd()}…` : t;
 };
 const ref = (b: ExtractionBlock) => (b.clauseNumber ? `clause ${b.clauseNumber}` : `the passage "${excerpt(b).slice(0, 50)}…"`);
-const Ref = (b: ExtractionBlock) => { const r = ref(b); return r[0].toUpperCase() + r.slice(1); };
+const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
+const Ref = (b: ExtractionBlock) => cap(ref(b));
 const passage = (b: ExtractionBlock, role: FindingPassage['role'] = 'primary'): FindingPassage => ({ blockId: b.id, clauseNumber: b.clauseNumber, excerpt: excerpt(b), role });
 
 function finding(rule: FindingRule, severity: Severity, f: Omit<Finding, 'id' | 'key' | 'wordingHash' | 'rule' | 'severity'>): Finding {
@@ -345,6 +349,92 @@ function essentialsRule(ctx: Ctx): Finding[] {
   return out;
 }
 
+// ---------- Rule 7: comparison with the active playbook ----------
+
+const MATCH = 0.75;
+const RED_LINE_SIMILARITY = 0.6;
+
+/** Quoted words in a red line are matched exactly; otherwise the whole red line is compared by similarity. */
+function crossesRedLine(text: string, redLine: string): string | null {
+  const quoted = [...redLine.matchAll(/["“]([^"”]{2,80})["”]/g)].map((m) => m[1].trim());
+  if (quoted.length) return quoted.find((q) => text.toLowerCase().includes(q.toLowerCase())) ?? null;
+  return similarity(text, redLine) >= RED_LINE_SIMILARITY ? redLine : null;
+}
+
+function playbookRule(ctx: Ctx): Finding[] {
+  const pb = ctx.input.playbook;
+  if (!pb || !FULL_CONTRACT_ROLES.includes(ctx.input.role)) return [];
+  const label = `${pb.name}, version ${pb.version}`;
+  const out: Finding[] = [];
+  for (const pos of pb.positions) {
+    const topicName = TOPIC_LABELS[pos.topic].toLowerCase();
+    const clauses = inTopic(ctx, pos.topic);
+    if (!clauses.length) {
+      out.push(finding('playbook_deviation', 'amber', {
+        title: `Playbook expects a clause on ${topicName}`,
+        plain: `Your playbook (${label}) has a position on ${topicName}, but this document has no clause on it.`,
+        legal: `No provision on ${topicName} was identified, although the active playbook (${label}) sets a position on it.`,
+        cannotWorkOut: null,
+        passages: [],
+        reference: pos.preferredText ? { label: `Preferred wording in your playbook (${label})`, text: pos.preferredText } : null,
+      }));
+      continue;
+    }
+    let redLineHit = false;
+    if (pos.redLine) {
+      for (const c of clauses) {
+        const hit = crossesRedLine(c.text, pos.redLine);
+        if (!hit) continue;
+        redLineHit = true;
+        out.push(finding('playbook_deviation', 'red', {
+          title: `Crosses your playbook's red line on ${topicName}`,
+          plain: `${Ref(c)} contains "${hit}", which your playbook (${label}) says never to accept.`,
+          legal: `${Ref(c)} conflicts with the red line in the active playbook (${label}) on ${topicName}.`,
+          cannotWorkOut: null,
+          passages: [passage(c)],
+          reference: { label: `Red line in your playbook (${label})`, text: pos.redLine },
+        }));
+      }
+    }
+    if (redLineHit || !pos.preferredText) continue;
+    const scored = clauses.map((c) => ({
+      c,
+      preferred: similarity(stripNumber(c.text, c.clauseNumber), pos.preferredText!),
+      fallback: pos.fallbackText ? similarity(stripNumber(c.text, c.clauseNumber), pos.fallbackText) : 0,
+    }));
+    const best = scored.sort((a, b) => Math.max(b.preferred, b.fallback) - Math.max(a.preferred, a.fallback))[0];
+    if (best.preferred >= MATCH && best.preferred >= best.fallback) {
+      out.push(finding('playbook_deviation', 'green', {
+        title: `Matches your preferred wording on ${topicName}`,
+        plain: `${Ref(best.c)} is close to the preferred wording in your playbook (${label}).`,
+        legal: `${Ref(best.c)} substantially follows the preferred position in the active playbook (${label}).`,
+        cannotWorkOut: null,
+        passages: [passage(best.c)],
+        reference: { label: `Preferred wording in your playbook (${label})`, text: pos.preferredText },
+      }));
+    } else if (best.fallback >= MATCH) {
+      out.push(finding('playbook_deviation', 'amber', {
+        title: `Uses your fallback position on ${topicName}`,
+        plain: `${Ref(best.c)} is close to your playbook's fallback wording, not the preferred wording. That's acceptable under the playbook, but not your first choice.`,
+        legal: `${Ref(best.c)} follows the fallback, rather than the preferred, position in the active playbook (${label}).`,
+        cannotWorkOut: null,
+        passages: [passage(best.c)],
+        reference: { label: `Preferred wording in your playbook (${label})`, text: pos.preferredText },
+      }));
+    } else {
+      out.push(finding('playbook_deviation', 'amber', {
+        title: `Differs from your playbook on ${topicName}`,
+        plain: `${cap(clauses.map(ref).join(', '))} ${clauses.length > 1 ? "don't" : "doesn't"} match the preferred or fallback wording in your playbook (${label}). Compare them before agreeing.`,
+        legal: `The provision(s) on ${topicName} (${clauses.map(ref).join(', ')}) depart from both the preferred and fallback positions in the active playbook (${label}).`,
+        cannotWorkOut: null,
+        passages: clauses.map((c) => passage(c)),
+        reference: { label: `Preferred wording in your playbook (${label})`, text: pos.preferredText },
+      }));
+    }
+  }
+  return out;
+}
+
 // ---------- Run ----------
 
 const ORDER: Record<Severity, number> = { red: 0, amber: 1, green: 2 };
@@ -365,6 +455,7 @@ export function runFindings(input: FindingsInput): FindingsResponse {
     ...terminationCureRule(ctx),
     ...referenceRule(ctx),
     ...essentialsRule(ctx),
+    ...playbookRule(ctx),
   ].sort((a, b) => ORDER[a.severity] - ORDER[b.severity]);
 
   // Keys survive new versions: they use clause numbers, not block ids. The
@@ -384,7 +475,9 @@ export function runFindings(input: FindingsInput): FindingsResponse {
     findings,
     orphanedDecisions: [],
     summary,
-    rulesChecked: FINDING_RULES.filter((r) => r !== 'missing_essentials' || FULL_CONTRACT_ROLES.includes(input.role))
+    rulesChecked: FINDING_RULES
+      .filter((r) => (r !== 'missing_essentials' && r !== 'playbook_deviation') || FULL_CONTRACT_ROLES.includes(input.role))
+      .filter((r) => r !== 'playbook_deviation' || !!input.playbook)
       .map((rule) => ({ rule, label: FINDING_RULE_LABELS[rule] })),
   };
 }
