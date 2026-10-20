@@ -244,6 +244,26 @@ a.list__item:hover { border-color: var(--accent); }
 .passage mark { background: #fff1a8; color: #1c1c1c; padding: 0 1px; }
 .passage__ctx { color: var(--muted); }
 
+/* ---------- Findings (severity colours are fixed, never themed) ---------- */
+.sev-summary { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.9rem; }
+.sev { display: inline-flex; gap: 0.3rem; align-items: center; font-family: system-ui, sans-serif; font-size: 0.8rem; font-weight: 700; padding: 0.15rem 0.6rem; border-radius: 999px; border: 1px solid; }
+.sev--red { background: #fde8e8; border-color: #e7a3a3; color: #6b1010; }
+.sev--amber { background: #fff4d6; border-color: #e8c766; color: #4a3300; }
+.sev--green { background: #dcf5e3; border-color: #9fd8b2; color: #0f5130; }
+.count--red { background: #b42318; color: #fff; }
+.count--amber { background: #a86b00; color: #fff; }
+.finding { background: var(--surface); border: 1px solid var(--line); border-left: 5px solid; border-radius: var(--radius); box-shadow: var(--shadow); padding: 0.9rem 1rem; margin-bottom: 0.75rem; }
+.finding--red { border-left-color: #b42318; }
+.finding--amber { border-left-color: #c98a00; }
+.finding--green { border-left-color: #1f8a4c; }
+.finding header { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; margin-bottom: 0.4rem; }
+.finding h3 { margin: 0; font-size: 1rem; }
+.finding p { margin: 0.3rem 0; }
+.finding__cannot { font-size: 0.9rem; background: var(--bg); border-radius: 6px; padding: 0.4rem 0.6rem; }
+.finding__passages { list-style: none; padding: 0; margin: 0.5rem 0 0; display: grid; gap: 0.2rem; }
+.checked summary { cursor: pointer; font-weight: 600; }
+.checked ul { margin: 0.5rem 0; padding-left: 1.1rem; }
+
 /* ---------- Project document controls ---------- */
 .doc-item { align-items: flex-start; }
 .doc-item__main { min-width: 0; flex: 1; }

@@ -7,6 +7,7 @@ import { tenantRoutes } from './routes/tenant.ts';
 import { projectRoutes } from './routes/projects.ts';
 import { documentRoutes } from './routes/documents.ts';
 import { compareRoutes } from './routes/compare.ts';
+import { findingsRoutes } from './routes/findings.ts';
 
 export async function buildApp(services: Services, opts: { logger?: boolean } = {}) {
   const app = Fastify({
@@ -53,5 +54,6 @@ export async function buildApp(services: Services, opts: { logger?: boolean } = 
   await app.register(projectRoutes(services));
   await app.register(documentRoutes(services));
   await app.register(compareRoutes(services));
+  await app.register(findingsRoutes(services));
   return app;
 }

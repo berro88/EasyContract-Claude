@@ -14,7 +14,7 @@
 apps/api        Fastify API on :3001, SQLite via node:sqlite
   src/db          schema, seed
   src/analysis    topic sorting, quoted facts, explanation templates, clause alignment,
-                  amendments, letter matching, party checks
+                  amendments, letter matching, party checks, risk findings
   src/extraction  PDF (pdfjs-dist) and DOCX (jszip + xmldom) extraction, quality checks, flags
   src/lib         access policy, storage, audit and usage helpers
   src/interfaces  extension points (see below)
@@ -65,6 +65,12 @@ Quality checks report files as "couldn't read this" (not as a success) when they
 - Negotiation status lives in `document_statuses` and is only written by a person (`PUT /api/documents/:id/status`). With no row, a document labelled "signed copy" counts as signed and a "proposal" as proposed, because a person picked that role; everything else is "not confirmed". Only *agreed* and *signed* make wording authoritative.
 - `document_links` records which agreement an amendment or letter applies to. Unlinked amendments apply to whichever base is chosen.
 - `src/analysis/letters.ts` scores each candidate agreement on party names, references and "agreement dated …" phrases, then picks the clause by topic, heading and wording. `src/analysis/parties.ts` finds company names and defined terms, and flags named parties swapped for undefined terms.
+
+## Risk findings
+
+`src/analysis/findings.ts` runs six rules over a document's current wording (tracked changes and headings excluded), using the Stage 2 topic sorting to find the relevant clauses. Each finding carries a stable id (rule, severity and primary passages), so Stage 5 can attach decisions to it. Findings are computed on request and never stored, so they always reflect the latest rules.
+
+Two guarantees are tested on every finding: each passage it cites exists in the document, and every number in its wording appears in the document. Periods are compared only when their units match (calendar days with calendar days); nothing is converted or added up.
 
 ## Extension points
 

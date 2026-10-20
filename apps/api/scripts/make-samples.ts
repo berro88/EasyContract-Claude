@@ -76,3 +76,22 @@ writeFileSync(join(out, 'sample-msa-increase-letter.pdf'), await makePdf([[
   'The new fee will apply from the next invoice.', '',
   'Yours faithfully,', 'Example Supplier (Pty) Ltd',
 ]]));
+
+// Stage 4: a deliberately risky synthetic agreement that trips each finding rule.
+writeFileSync(join(out, 'sample-risky-transport-agreement.docx'), await makeDocx([
+  { text: 'Synthetic Transport Subcontract (risky on purpose)', style: 'Heading1' },
+  { text: 'Parties', num: { numId: 1, ilvl: 0 } },
+  { text: 'This subcontract is made between Example Haulage (Pty) Ltd ("Subcontractor") and Sample Logistics Ltd ("Contractor").', num: { numId: 1, ilvl: 1 } },
+  { text: 'The Subcontractor must comply with the Principal Agreement as it applies to the services.', num: { numId: 1, ilvl: 1 } },
+  { text: 'Rates', num: { numId: 1, ilvl: 0 } },
+  { text: 'The rates are set out in Schedule 2.', num: { numId: 1, ilvl: 1 } },
+  { text: 'The rates increase annually on each anniversary by [ESCALATION %].', num: { numId: 1, ilvl: 1 } },
+  { text: 'A fuel surcharge applies monthly when the diesel price rises.', num: { numId: 1, ilvl: 1 } },
+  { text: 'Invoices are payable within 30 days.', num: { numId: 1, ilvl: 1 } },
+  { text: 'Liability', num: { numId: 1, ilvl: 0 } },
+  { text: "Each party's aggregate liability shall not exceed the fees paid in the 12 months before the claim.", num: { numId: 1, ilvl: 1 } },
+  { text: 'Notwithstanding clause 3.1, the Subcontractor indemnifies the Contractor against all losses arising from the services.', num: { numId: 1, ilvl: 1 } },
+  { text: 'Breach and termination', num: { numId: 1, ilvl: 0 } },
+  { text: 'A party in breach has 14 days after written notice to remedy the breach.', num: { numId: 1, ilvl: 1 } },
+  { text: 'The Contractor may terminate this subcontract immediately if the Subcontractor commits any breach.', num: { numId: 1, ilvl: 1 } },
+], { numbering: true }));

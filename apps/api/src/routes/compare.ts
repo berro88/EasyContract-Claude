@@ -165,8 +165,13 @@ export const compareRoutes = ({ db }: Services) => async (app: FastifyInstance) 
          AND (l.target_document_id IS NULL OR l.target_document_id = ?)
        ORDER BY d.created_at`,
     ).all(projectId, req.actor.tenantId, baseId, baseId) as { id: string }[];
+    const skipped: string[] = [];
     const amendments = docs.flatMap(({ id }) => {
-      try { return [loadVersion(db, req.actor, id)]; } catch { return []; }
+      try { return [loadVersion(db, req.actor, id)]; } catch (err) {
+        if (err instanceof HttpError && err.status === 422) skipped.push(err.message);
+        else throw err;
+        return [];
+      }
     });
 
     const { clauses, results } = effectivePosition(base.blocks, earlierNumbers, amendments.map((a) => ({
@@ -194,7 +199,8 @@ export const compareRoutes = ({ db }: Services) => async (app: FastifyInstance) 
       baseTexts, [...baseTexts, ...appliedTexts],
     );
 
-    const warnings = trackedWarnings(base, ...amendments);
+    // Unreadable amendments are left out, and we say so rather than skipping them quietly.
+    const warnings = [...skipped.map((m) => `${m.replace(/, so it can't be compared\./, '.')} It is left out of the effective position.`), ...trackedWarnings(base, ...amendments)];
     const baseWarning = isAuthoritative(base.ref.negotiationStatus) ? null
       : `Nobody has confirmed that "${base.doc.title}" is the agreed or signed version (its status is "${NEGOTIATION_LABELS[base.ref.negotiationStatus]}"). Set its status on the project page before relying on this.`;
     return { base: base.ref, baseWarning, clauses, amendments: summaries, partyChanges, warnings };

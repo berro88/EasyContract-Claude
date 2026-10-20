@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { CompareResponse, EffectivePositionResponse, LetterMatchResponse, ProposedSignedResponse } from '@easycontract/shared';
-import { asOther, asOwner, createProject, makeApp, makeDocx, makePdf, multipart, upload, type DocxParagraph } from './helpers.ts';
+import { asOther, asOwner, createProject, makeApp, makeDocx, makeImageOnlyPdf, makePdf, multipart, upload, type DocxParagraph } from './helpers.ts';
 
 type App = Awaited<ReturnType<typeof makeApp>>['app'];
 
@@ -176,6 +176,14 @@ describe('base agreement plus amendments', () => {
     ]);
     expect(body.amendments[0].instructions[1].explanation).toMatch(/"R99,999" aren't in clause 2.1/);
     expect(body.baseWarning).toMatch(/Nobody has confirmed/);
+  });
+
+  it('says when an amendment could not be read instead of skipping it quietly', async () => {
+    const { app, p, base } = await setup();
+    await add(app, p.id, 'scanned-amendment.pdf', await makeImageOnlyPdf(1), 'amendment');
+    const { body } = await get<EffectivePositionResponse>(app, `/api/projects/${p.id}/effective?base=${base}`);
+    expect(body.warnings).toEqual(expect.arrayContaining([expect.stringMatching(/couldn't read "scanned-amendment".*left out of the effective position/)]));
+    expect(body.amendments).toHaveLength(1);
   });
 
   it('negotiation status is separate from incorporation and needs edit rights', async () => {

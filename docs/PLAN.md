@@ -12,8 +12,8 @@ We build one stage at a time. Every stage ends with a working flow and tests. No
 | 1 | Understand a contract: projects, upload with document roles, PDF/DOCX extraction, source viewer, quality checks, audit and usage | Done |
 | 2 | Clause navigation into topic cards, plain-English explanations from templates | Done |
 | 3 | Version comparison, amendment reconciliation, letter matching | Done |
-| 4 | Clause interactions and red/amber/green risk findings | Next |
-| 5 | Human decisions on findings; Word, PDF (and Excel) exports with the disclaimer | |
+| 4 | Clause interactions and red/amber/green risk findings | Done |
+| 5 | Human decisions on findings; Word, PDF (and Excel) exports with the disclaimer | Next |
 | 6 | Versioned clause library and playbooks | |
 | 7 | Contract Wizard (create a contract) | |
 | 8 | Sign-up with policy acceptance, invites, hardening, .doc and optional OCR, private-preview deploy config | |
@@ -64,6 +64,21 @@ In scope:
 
 Out of scope for Stage 3: risk findings (Stage 4), decisions and exports (Stage 5).
 
+## Stage 4 scope
+
+In scope: rule-based findings for each document, graded red (high concern), amber (check this) or green (looks covered), each linked to the passages it's based on:
+- **Liability cap and indemnities:** an indemnity that applies "notwithstanding" the cap or "without limit" (red); a cap that carves out indemnities (red); no link either way (amber); indemnity expressly subject to the cap (green); indemnity with no cap anywhere (amber).
+- **Escalation that can't be worked out:** a placeholder such as "[ESCALATION %]" or "TBC" (red); an index such as CPI with no stated rate (amber).
+- **Overlapping fuel and annual escalation** (amber), or green when the annual increase excludes fuel.
+- **Termination and cure periods:** immediate termination for breach despite a cure period (red); termination notice shorter than the cure period (red); different cure periods in different clauses (amber).
+- **Referenced documents not provided:** schedules, annexures and principal or master agreements that are neither in the document nor in the project (amber).
+- **Missing essentials** for full contracts: parties and price (red), payment, term, termination, governing law and a liability limit (amber); green when all are present.
+- No amounts are calculated. When a figure depends on something the document doesn't state, the finding has a "can't be worked out" note.
+- The Findings view lists them by severity; clicking a passage opens it. Severity colours are fixed and the same in every theme.
+- Stage 3 follow-up: an amendment that couldn't be read is now named in a warning on the effective position, not skipped quietly.
+
+Out of scope for Stage 4: accepting or rejecting findings and exports (Stage 5), playbook-driven findings (Stage 6).
+
 ## Try it
 
 ```bash
@@ -72,4 +87,4 @@ pnpm --filter @easycontract/api samples   # writes synthetic contracts to ./samp
 pnpm dev                                   # API on :3001, web on :5173
 ```
 
-Open http://localhost:5173, choose **Understand a contract**, and upload the files from `samples/`. `sample-master-services-agreement.docx` has one section per topic. For Stage 3, add `sample-amendment-1.docx` (role: Amendment), `sample-msa-proposal-FINAL.docx` (Proposal) and `sample-msa-increase-letter.pdf` (Increase letter), mark the agreement and amendment as Signed, then open **Compare and reconcile**.
+Open http://localhost:5173, choose **Understand a contract**, and upload the files from `samples/`. `sample-master-services-agreement.docx` has one section per topic. For Stage 3, add `sample-amendment-1.docx` (role: Amendment), `sample-msa-proposal-FINAL.docx` (Proposal) and `sample-msa-increase-letter.pdf` (Increase letter), mark the agreement and amendment as Signed, then open **Compare and reconcile**. For Stage 4, open `sample-risky-transport-agreement.docx` and choose **Findings**.

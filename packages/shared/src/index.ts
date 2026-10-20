@@ -365,6 +365,58 @@ export interface LetterMatchResponse {
   problems: string[];
 }
 
+// ---------- Stage 4: risk findings ----------
+
+export const SEVERITIES = ['red', 'amber', 'green'] as const;
+export type Severity = (typeof SEVERITIES)[number];
+export const SEVERITY_LABELS: Record<Severity, string> = { red: 'High concern', amber: 'Check this', green: 'Looks covered' };
+
+export const FINDING_RULES = [
+  'liability_cap_bypass',
+  'escalation_unworkable',
+  'overlapping_escalation',
+  'termination_cure_conflict',
+  'missing_reference',
+  'missing_essentials',
+] as const;
+export type FindingRule = (typeof FINDING_RULES)[number];
+export const FINDING_RULE_LABELS: Record<FindingRule, string> = {
+  liability_cap_bypass: 'Liability cap and indemnities',
+  escalation_unworkable: 'Price escalation that cannot be worked out',
+  overlapping_escalation: 'Overlapping price increases',
+  termination_cure_conflict: 'Termination and cure periods',
+  missing_reference: 'Documents referred to but not provided',
+  missing_essentials: 'Essential terms',
+};
+
+export interface FindingPassage {
+  blockId: string;
+  clauseNumber: string | null;
+  excerpt: string;
+  /** 'primary' is the passage the finding is about; 'related' supports it. */
+  role: 'primary' | 'related';
+}
+
+export interface Finding {
+  /** Stable for the same rule and passages, so later stages can attach decisions. */
+  id: string;
+  rule: FindingRule;
+  severity: Severity;
+  title: string;
+  plain: string;
+  legal: string;
+  /** When a figure depends on something the document doesn't state, why it can't be worked out. */
+  cannotWorkOut: string | null;
+  passages: FindingPassage[];
+}
+
+export interface FindingsResponse {
+  versionId: string;
+  findings: Finding[];
+  summary: Record<Severity, number>;
+  rulesChecked: { rule: FindingRule; label: string }[];
+}
+
 export const UPLOAD_LIMITS = {
   maxBytes: 20 * 1024 * 1024,
   extensions: ['.pdf', '.docx'],

@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
-  DOCUMENT_ROLE_LABELS, TOPIC_LABELS, type BlockNote, type ClauseExplanation, type DocumentRole, type DocumentSummary,
-  type DocumentVersionSummary, type ExtractionBlock, type TopicsResponse,
+  DOCUMENT_ROLE_LABELS, SEVERITIES, SEVERITY_LABELS, TOPIC_LABELS, type BlockNote, type ClauseExplanation, type DocumentRole,
+  type DocumentSummary, type DocumentVersionSummary, type ExtractionBlock, type FindingsResponse, type TopicsResponse,
 } from '@easycontract/shared';
 import { useApi } from '../lib/useApi.ts';
 import { usePrefs } from '../lib/prefs.tsx';
@@ -26,6 +26,8 @@ export function DocumentViewer() {
   const project = useApi<{ documents: DocumentSummary[] }>(`/projects/${projectId}`);
   const blocks = useApi<{ version: DocumentVersionSummary; blocks: ExtractionBlock[] }>(`/documents/${documentId}/blocks`);
   const topics = useApi<TopicsResponse>(`/documents/${documentId}/topics`);
+  const readable = blocks.data?.version.status === 'ready';
+  const findings = useApi<FindingsResponse>(readable ? `/documents/${documentId}/findings` : null);
 
   const go = (next: { view?: View; block?: string | null }) => {
     const p: Record<string, string> = {};
@@ -73,6 +75,9 @@ export function DocumentViewer() {
           </button>
           <button className={view === 'findings' ? 'is-active' : ''} onClick={() => go({ view: 'findings' })}>
             <span>Findings</span>
+            {findings.data && (findings.data.summary.red > 0
+              ? <span className="count count--red" title="High concern">{findings.data.summary.red}</span>
+              : findings.data.summary.amber > 0 && <span className="count count--amber" title="Check this">{findings.data.summary.amber}</span>)}
           </button>
           <Link className="sidenav__link" to={`/projects/${projectId}/compare`}>Compare →</Link>
         </nav>
@@ -80,13 +85,7 @@ export function DocumentViewer() {
         <div className="viewer__main">
           {view === 'document' && <DocumentText blocks={blocks.data.blocks} selectedId={selectedId} onSelect={(id) => go({ block: id })} />}
           {view === 'topics' && <TopicCards data={topics.data} error={topics.error} selectedId={selectedId} onSelect={(id) => go({ block: id })} />}
-          {view === 'findings' && (
-            <div className="card empty">
-              <span className="empty__icon" aria-hidden>🔎</span>
-              <h2>No findings yet</h2>
-              <p>Risk findings (for example a liability cap undone by an indemnity) will appear here in a later update.</p>
-            </div>
-          )}
+          {view === 'findings' && <FindingsList data={findings.data} error={findings.error} selectedId={selectedId} onSelect={(id) => go({ block: id })} />}
         </div>
 
         <aside className="viewer__panel" aria-label="Explanation">
@@ -193,6 +192,53 @@ function TopicCards({ data, error, selectedId, onSelect }: {
           </ul>
         </details>
       )}
+    </div>
+  );
+}
+
+function FindingsList({ data, error, selectedId, onSelect }: {
+  data: FindingsResponse | null; error: string | null; selectedId: string | null; onSelect(id: string): void;
+}) {
+  const { level } = usePrefs();
+  if (error) return <Warning tone="danger">{error}</Warning>;
+  if (!data) return <p className="muted">Checking the document…</p>;
+  return (
+    <div>
+      <div className="sev-summary">
+        {SEVERITIES.map((s) => (
+          <span key={s} className={`sev sev--${s}`}><strong>{data.summary[s]}</strong> {SEVERITY_LABELS[s].toLowerCase()}</span>
+        ))}
+      </div>
+      {data.findings.length === 0 && <div className="card empty"><p>None of the checks below found anything in this document.</p></div>}
+      {data.findings.map((f) => (
+        <article key={f.id} className={`finding finding--${f.severity}`}>
+          <header>
+            <span className={`sev sev--${f.severity}`}>{SEVERITY_LABELS[f.severity]}</span>
+            <h3>{f.title}</h3>
+          </header>
+          <p>{level === 'legal' ? f.legal : f.plain}</p>
+          {f.cannotWorkOut && <p className="finding__cannot"><strong>Can't be worked out:</strong> {f.cannotWorkOut}</p>}
+          {f.passages.length > 0 && (
+            <ul className="finding__passages">
+              {f.passages.map((p) => (
+                <li key={p.blockId}>
+                  <button className={`topic-ref ${p.blockId === selectedId ? 'is-selected' : ''}`} onClick={() => onSelect(p.blockId)}>
+                    {p.clauseNumber && <span className="block__num">{p.clauseNumber}</span>}
+                    {p.role === 'related' && <span className="block__tag">Related</span>}
+                    <span>{p.excerpt}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {f.passages.length === 0 && <p className="muted small">Not stated anywhere in this document.</p>}
+        </article>
+      ))}
+      <details className="card checked">
+        <summary>What we checked</summary>
+        <ul>{data.rulesChecked.map((r) => <li key={r.rule}>{r.label}</li>)}</ul>
+        <p className="muted small">These are automatic checks for common problems. Finding nothing doesn't mean the contract is safe.</p>
+      </details>
     </div>
   );
 }
