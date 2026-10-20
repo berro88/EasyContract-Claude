@@ -1,0 +1,68 @@
+# EasyContract architecture
+
+## Product rules the code enforces
+
+- **Not legal advice.** The usage policy (`packages/shared/src/policy.ts`, version `0.1-draft`) stays a draft until a lawyer reviews it. Its short disclaimer appears in a banner on every page and in every block and passage response, and will appear on every export.
+- **Nothing invented.** Every note the AI provider produces carries `sourceBlockId`. Missing facts are "not stated".
+- **Uploaded text is untrusted.** Extraction stores it verbatim. Phrases that look like instructions get the `embedded_instruction` flag and a warning. No code path turns document text into a tool or network call.
+- **No paid AI.** All AI goes through `AiProvider`. Only `DeterministicProvider` exists: no network, no keys.
+- **Themes never soften warnings.** Themed wording lives in `apps/web/src/lib/copy.ts`. Safety wording lives in `warnings.ts`, and safety styles use fixed colours outside the theme tokens. A test checks the two never mix.
+
+## Layout
+
+```
+apps/api        Fastify API on :3001, SQLite via node:sqlite
+  src/db          schema, seed
+  src/extraction  PDF (pdfjs-dist) and DOCX (jszip + xmldom) extraction, quality checks, flags
+  src/lib         access policy, storage, audit and usage helpers
+  src/interfaces  extension points (see below)
+  src/providers   DeterministicProvider
+  src/routes      tenant, projects, documents and blocks
+  scripts         synthetic sample generator
+apps/web        Vite + React on :5173, proxies /api to :3001
+packages/shared types, constants, policy text
+samples/        synthetic contracts for trying the app
+```
+
+## Multi-tenancy
+
+- Every tenant-owned row has `tenant_id`, and every query filters on it.
+- Looking up another tenant's project, document or block returns **404**, never 403, so nothing about its existence leaks. The attempt is audited in the caller's own tenant.
+- Files are stored at `{tenant_id}/{sha256}`. Reads check the key's tenant prefix.
+
+## Roles
+
+`owner`, `admin`, `reviewer`, `commenter`, `read_only`. One module (`apps/api/src/lib/access-policy.ts`) maps actions to roles. A project grant can change a member's role on one project; owners and admins keep theirs. An invite is a `project_grants` row with `accepted_at` null.
+
+## Data model
+
+tenants, users, tenant_memberships, plans, subscriptions, usage_events (`ai_tokens`, `pages_processed`), projects, project_grants, documents, document_versions, extraction_blocks, comments, audit_events (metadata only, never clause text), playbooks, playbook_positions, signed_contracts, key_dates, obligations, ai_provider_configs (`provider_key`, `model_id`, `data_residency=local`, `allow_external_processing=false`), policy_acceptances (user, tenant, document key, version, accepted_at).
+
+## Extraction and anchors
+
+| Format | Anchor | Notes |
+|---|---|---|
+| DOCX | `part` + `paragraphId` (`w14:paraId`, or position when absent), plus `revisionId`, author and date for tracked changes | Tracked insertions and deletions are separate blocks. Word numbering becomes real clause numbers, including `(a)` under `3.1` → `3.1(a)`. Tables, content controls and hyperlinks are read. |
+| PDF | `page` + `charStart`/`charEnd` into that page's extracted text | Paragraphs split on line-spacing gaps and clause numbers. |
+
+Block ids are deterministic hashes of version + anchor. The passage endpoint re-reads the original file and reports `verified` when the text still matches.
+
+Quality checks report files as "couldn't read this" (not as a success) when they have no text, fewer than 40 characters per page, or mostly non-letter text. Files are identified by content, not just extension. Old `.doc` files get a "save as .docx" message until Stage 8.
+
+## Extension points
+
+Declared in `apps/api/src/interfaces/index.ts`:
+
+| Interface | Today | Later |
+|---|---|---|
+| `StorageEncryption` | `IdentityEncryption` (no-op) | Encryption at rest with a managed key |
+| `AiProvider` | `DeterministicProvider` | Swappable real providers, chosen per tenant via `ai_provider_configs` |
+| `PlaybookSource` | none | Stage 6 clause library and playbooks |
+| `RedlineExporter` | none | Redlined Word counter-drafts from block anchors |
+| `ObligationNotifier` | none | Reminders for key dates and obligations |
+| `Connector` (`onedrive`, `sharepoint`, `outlook`, `esignature`, `crm`) | none | Import from and export to other systems |
+| `ResearchProvider` | none | Live legal research; citations carry jurisdiction, url, provision, verification date, binding or commentary |
+
+## Roadmap after Stage 8
+
+Teams and sharing with clause comments; separate client accounts with usage-based billing; redlined counter-drafts; a signed-contract register with key dates, obligations and reminders; connectors; live legal research with verified citations; per-tenant AI provider choice and data residency. The schema and interfaces above already allow for these.

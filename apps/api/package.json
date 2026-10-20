@@ -1,0 +1,29 @@
+{
+  "name": "@easycontract/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "seed": "tsx src/db/seed-cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json",
+    "samples": "tsx scripts/make-samples.ts"
+  },
+  "dependencies": {
+    "@easycontract/shared": "workspace:*",
+    "@fastify/multipart": "^9.0.3",
+    "@xmldom/xmldom": "^0.9.8",
+    "fastify": "^5.3.3",
+    "jszip": "^3.10.1",
+    "pdfjs-dist": "4.10.38"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "pdf-lib": "^1.17.1",
+    "tsx": "^4.19.4",
+    "typescript": "~5.8.3",
+    "vitest": "^3.2.4"
+  }
+}
