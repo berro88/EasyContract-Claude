@@ -491,6 +491,66 @@ export interface PlaybookSeries {
 /** Example content is labelled with this prefix and never presented as real legal content. */
 export const EXAMPLE_PREFIX = 'EXAMPLE';
 
+// ---------- Stage 7: Contract Wizard ----------
+
+export const CONTRACT_TYPES = ['service_agreement', 'supply', 'nda', 'employment', 'lease', 'sales_terms'] as const;
+export type ContractType = (typeof CONTRACT_TYPES)[number];
+
+export type QuestionKind = 'text' | 'textarea' | 'date' | 'number' | 'select' | 'yesno';
+
+export interface WizardQuestion {
+  id: string;
+  group: string;
+  label: string;
+  help?: string;
+  kind: QuestionKind;
+  options?: { value: string; label: string }[];
+  /** Pre-filled from this company profile field when the draft is created. */
+  prefill?: keyof CompanyProfile;
+  /** Without an answer, the contract is missing something essential. */
+  essential?: boolean;
+  /** The more protective answer, and why. */
+  protective?: { answer: string; why: string };
+  /** Only ask when another answer has this value. */
+  showIf?: { question: string; equals: string };
+}
+
+export interface ContractTypeInfo {
+  id: ContractType;
+  label: string;
+  description: string;
+  questions: WizardQuestion[];
+}
+
+export interface DraftSection {
+  id: string;
+  number: string;
+  topic: Topic | null;
+  heading: string;
+  text: string;
+  explanation: string;
+  /** Where the wording came from. */
+  source: { kind: 'template' | 'library' | 'playbook'; label: string };
+  /** A protective option this clause uses, or could use. */
+  protective?: string | null;
+  /** A common loophole to watch for in this clause. */
+  loophole?: string | null;
+}
+
+export interface DraftSummary {
+  id: string;
+  type: ContractType;
+  title: string;
+  updatedAt: string;
+}
+
+export interface DraftPreview {
+  draft: DraftSummary;
+  sections: DraftSection[];
+  missing: { questionId: string; label: string }[];
+  findings: FindingsResponse;
+}
+
 export const UPLOAD_LIMITS = {
   maxBytes: 20 * 1024 * 1024,
   extensions: ['.pdf', '.docx'],

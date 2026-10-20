@@ -4,7 +4,7 @@ import { type Services, HttpError, audit, requireCan } from '../lib/context.ts';
 
 const PROFILE_FIELDS: (keyof CompanyProfile)[] = ['name', 'legalName', 'registrationNumber', 'address', 'country', 'industry', 'contactEmail'];
 
-function readProfile(json: string): CompanyProfile {
+export function readProfile(json: string): CompanyProfile {
   const raw = JSON.parse(json || '{}') as Partial<CompanyProfile>;
   return Object.fromEntries(PROFILE_FIELDS.map((f) => [f, typeof raw[f] === 'string' ? raw[f] : ''])) as unknown as CompanyProfile;
 }

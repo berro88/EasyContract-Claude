@@ -18,7 +18,7 @@ export function Home() {
           <span className="choice__icon" aria-hidden>✍️</span>
           <h2>{t('createTitle')}</h2>
           <p>{t('createBody')}</p>
-          <span className="choice__go">Coming soon</span>
+          <span className="choice__go">Start →</span>
         </Link>
       </div>
     </section>

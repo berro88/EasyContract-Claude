@@ -21,6 +21,7 @@ apps/api        Fastify API on :3001, SQLite via node:sqlite
   src/providers   DeterministicProvider
   src/library     clause library and playbooks (versioned), PlaybookSource
   src/reports     Word, PDF and Excel writers
+  src/wizard      Contract Wizard templates and assembly
   src/routes      tenant, projects, documents and blocks
   scripts         synthetic sample generator
 apps/web        Vite + React on :5173, proxies /api to :3001
@@ -86,6 +87,12 @@ Two guarantees are tested on every finding: each passage it cites exists in the 
 - Playbooks reuse `playbooks` and `playbook_positions`: rows with the same tenant and name are versions of one playbook, and `is_active` marks the single active version per tenant. Saving edits from an active version makes the new version active.
 - `DbPlaybookSource` (in `src/library/store.ts`) implements `PlaybookSource`; findings read the active playbook only through it, so another source can replace it.
 - The playbook rule (`playbook_deviation`) uses word similarity (0.75 for preferred or fallback) and, for red lines, exact matching of quoted words or similarity (0.6) to the whole red line. The playbook wording travels in the finding's separate `reference` field, so finding text still quotes only the document.
+
+## Contract Wizard
+
+- `src/wizard/templates.ts` defines each contract type: its questions (with pre-fill, essential, protective and show-if settings) and a builder that turns answers into sections. Builders insert answers verbatim and write "[NOT PROVIDED: …]" for missing ones.
+- `src/wizard/engine.ts` pre-fills from the company profile, cleans answers against the question list, lists missing essentials, assembles sections (playbook, then library, then template) and converts the draft into blocks so `runFindings` can check it like an uploaded document.
+- `drafts` stores each draft's type, title and answers. Contract exports reuse the Stage 5 Word and PDF writers.
 
 ## Extension points
 

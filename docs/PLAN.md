@@ -15,8 +15,8 @@ We build one stage at a time. Every stage ends with a working flow and tests. No
 | 4 | Clause interactions and red/amber/green risk findings | Done |
 | 5 | Human decisions on findings; Word, PDF (and Excel) exports with the disclaimer | Done |
 | 6 | Versioned clause library and playbooks | Done |
-| 7 | Contract Wizard (create a contract) | Next |
-| 8 | Sign-up with policy acceptance, invites, hardening, .doc and optional OCR, private-preview deploy config | |
+| 7 | Contract Wizard (create a contract) | Done |
+| 8 | Sign-up with policy acceptance, invites, hardening, .doc and optional OCR, private-preview deploy config | Next |
 
 ## Stage 1 scope
 
@@ -97,6 +97,18 @@ In scope:
 - **No real legal content is seeded.** The demo company gets an inactive "EXAMPLE playbook (illustrative, not legal advice)" and example clauses, all labelled.
 - Only owners and admins can change the library.
 
+## Stage 7 scope
+
+In scope:
+- **Six contract types:** service agreement, supply, NDA, employment, lease, and sales/quotation terms.
+- **Plain-English questions**, grouped into steps, pre-filled from the company profile, saved automatically. Each question can show help, a "protective choice" and whether it is essential.
+- **Assembly:** for each topic, the active playbook's preferred wording is used first, then the company's own (non-example) library clause, then built-in template wording. Every clause says where it came from and has a plain explanation, protective options and common loopholes.
+- **Nothing is guessed:** answers are inserted exactly as typed; a missing answer appears as "[NOT PROVIDED: …]" and is listed as a missing essential. No amounts are calculated.
+- **The same risk checks as a review** run on the draft.
+- **Exports:** editable Word and PDF, with the disclaimer on every page and drafting notes (missing essentials, risk checks, clause sources, protective options and loopholes) at the end, marked to remove before sending. The draft is never described as vetted or approved.
+
+Template wording is a general starting point, not tailored to any law. Employment and other regulated areas show prompts to check what the law requires.
+
 ## Try it
 
 ```bash
@@ -105,4 +117,4 @@ pnpm --filter @easycontract/api samples   # writes synthetic contracts to ./samp
 pnpm dev                                   # API on :3001, web on :5173
 ```
 
-Open http://localhost:5173, choose **Understand a contract**, and upload the files from `samples/`. `sample-master-services-agreement.docx` has one section per topic. For Stage 3, add `sample-amendment-1.docx` (role: Amendment), `sample-msa-proposal-FINAL.docx` (Proposal) and `sample-msa-increase-letter.pdf` (Increase letter), mark the agreement and amendment as Signed, then open **Compare and reconcile**. For Stage 4, open `sample-risky-transport-agreement.docx` and choose **Findings**. For Stage 6, open **Library → Playbooks**, choose **Use this version** on the example playbook, then look at the Findings of any agreement.
+Open http://localhost:5173, choose **Understand a contract**, and upload the files from `samples/`. `sample-master-services-agreement.docx` has one section per topic. For Stage 3, add `sample-amendment-1.docx` (role: Amendment), `sample-msa-proposal-FINAL.docx` (Proposal) and `sample-msa-increase-letter.pdf` (Increase letter), mark the agreement and amendment as Signed, then open **Compare and reconcile**. For Stage 4, open `sample-risky-transport-agreement.docx` and choose **Findings**. For Stage 6, open **Library → Playbooks**, choose **Use this version** on the example playbook, then look at the Findings of any agreement. For Stage 7, fill in **Company profile**, then choose **Create a contract** on the home page.

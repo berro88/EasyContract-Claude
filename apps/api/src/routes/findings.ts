@@ -5,7 +5,7 @@ import {
 } from '@easycontract/shared';
 import type { Db } from '../db/index.ts';
 import { newId, now } from '../db/index.ts';
-import { type Actor, type Services, HttpError, audit, notFound, requireCan } from '../lib/context.ts';
+import { type Actor, type Services, HttpError, audit, fileName, notFound, requireCan } from '../lib/context.ts';
 import type { PlaybookSource } from '../interfaces/index.ts';
 import { runFindings } from '../analysis/findings.ts';
 import { type DocumentRow, type VersionRow, latestVersion, listDocuments, loadDocument, versionBlocks } from './documents.ts';
@@ -201,9 +201,9 @@ export const findingsRoutes = ({ db, playbooks }: Services) => async (app: Fasti
       ? await renderXlsx(reviewWorkbook(doc, v, res), POLICY_DISCLAIMER)
       : format === 'docx' ? await renderDocx(reviewReport(db, req.actor, doc, v, res)) : await renderPdf(reviewReport(db, req.actor, doc, v, res));
     audit(db, { tenantId: req.actor.tenantId, userId: req.actor.userId, action: 'report.export', resourceType: 'documents', resourceId: documentId, outcome: 'allowed', metadata: { format } });
-    const fileName = `${doc.title.replace(/[^\w.-]+/g, '-').slice(0, 80)}-review.${format}`;
+
     reply.header('content-type', CONTENT_TYPES[format]);
-    reply.header('content-disposition', `attachment; filename="${fileName}"`);
+    reply.header('content-disposition', `attachment; filename="${fileName(`${doc.title} review`, format)}"`);
     reply.header('cache-control', 'no-store');
     return reply.send(bytes);
   });

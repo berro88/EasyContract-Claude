@@ -276,6 +276,30 @@ a.list__item:hover { border-color: var(--accent); }
 .decision__note { width: 100%; font-size: 0.9rem; resize: vertical; }
 .decision__foot { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 
+/* ---------- Contract Wizard ---------- */
+.choice--button { font: inherit; text-align: left; cursor: pointer; width: 100%; }
+.steps__btn { border: 0; background: transparent; font: inherit; color: inherit; display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer; padding: 0; }
+.essential { color: #b42318; }
+.protective { color: #1f7a45; }
+.loophole { color: #8a5a00; }
+.wizard-nav { margin-top: 1rem; }
+.draft { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 1.25rem; align-items: start; }
+.draft__side { display: grid; gap: 1rem; position: sticky; top: 1rem; }
+.draft__clause { border-bottom: 1px solid var(--line); padding: 0.75rem 0; }
+.draft__clause:last-child { border-bottom: 0; }
+.draft__clause h3 { margin: 0 0 0.35rem; display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.draft__text { margin: 0 0 0.35rem; white-space: pre-wrap; }
+.draft__clause p { margin: 0.25rem 0; }
+.source { font-size: 0.8rem; font-weight: 600; }
+.source--template { color: var(--muted); }
+.source--playbook, .source--library { color: var(--accent); }
+.missing-mark { background: #fde8e8; color: #6b1010; padding: 0 2px; border-radius: 3px; }
+.missing { margin: 0.35rem 0; padding-left: 1.1rem; }
+.linklike { border: 0; background: none; padding: 0; font: inherit; color: inherit; text-decoration: underline; cursor: pointer; text-align: left; }
+.finding--compact { padding: 0.6rem 0.75rem; box-shadow: none; display: grid; gap: 0.25rem; }
+.finding--compact p { margin: 0; }
+@media (max-width: 960px) { .draft { grid-template-columns: 1fr; } .draft__side { position: static; } }
+
 /* ---------- Library ---------- */
 .library { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr); gap: 1.25rem; align-items: start; }
 .library__list { display: grid; gap: 0.75rem; }

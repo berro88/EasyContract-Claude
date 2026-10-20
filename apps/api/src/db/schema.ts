@@ -150,6 +150,18 @@ CREATE TABLE IF NOT EXISTS finding_decisions (
   UNIQUE (document_id, finding_key)
 );
 
+-- Contract Wizard drafts. Answers are the user's own input.
+CREATE TABLE IF NOT EXISTS drafts (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  answers_json TEXT NOT NULL DEFAULT '{}',
+  created_by TEXT NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS comments (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL REFERENCES tenants(id),

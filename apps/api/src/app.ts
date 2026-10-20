@@ -9,6 +9,7 @@ import { documentRoutes } from './routes/documents.ts';
 import { compareRoutes } from './routes/compare.ts';
 import { findingsRoutes } from './routes/findings.ts';
 import { libraryRoutes } from './routes/library.ts';
+import { wizardRoutes } from './routes/wizard.ts';
 
 export async function buildApp(services: Services, opts: { logger?: boolean } = {}) {
   const app = Fastify({
@@ -57,5 +58,6 @@ export async function buildApp(services: Services, opts: { logger?: boolean } = 
   await app.register(compareRoutes(services));
   await app.register(findingsRoutes(services));
   await app.register(libraryRoutes(services));
+  await app.register(wizardRoutes(services));
   return app;
 }

@@ -4,7 +4,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { PrefsProvider } from './lib/prefs.tsx';
 import { Layout } from './components/Layout.tsx';
 import { Home } from './pages/Home.tsx';
-import { CreateComingSoon } from './pages/CreateComingSoon.tsx';
+import { CreateStart, DraftWizard } from './pages/Create.tsx';
 import { CompanyProfilePage } from './pages/CompanyProfile.tsx';
 import { Projects } from './pages/Projects.tsx';
 import { ProjectPage } from './pages/Project.tsx';
@@ -21,7 +21,8 @@ createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route element={<Layout />}>
             <Route index element={<Home />} />
-            <Route path="create" element={<CreateComingSoon />} />
+            <Route path="create" element={<CreateStart />} />
+            <Route path="create/:draftId" element={<DraftWizard />} />
             <Route path="profile" element={<CompanyProfilePage />} />
             <Route path="policy" element={<PolicyPage />} />
             <Route path="library" element={<Library />} />

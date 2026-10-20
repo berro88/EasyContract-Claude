@@ -75,3 +75,9 @@ export function auditCrossTenant(db: Db, actor: Actor, table: 'projects' | 'docu
 
 export type Req = FastifyRequest;
 export type Res = FastifyReply;
+
+/** A safe download file name: letters, digits, dots and single dashes. */
+export function fileName(title: string, ext: string) {
+  const base = title.replace(/[^\w.]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '').slice(0, 80) || 'document';
+  return `${base}.${ext}`;
+}
