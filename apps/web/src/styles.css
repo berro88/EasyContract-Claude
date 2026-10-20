@@ -264,6 +264,18 @@ a.list__item:hover { border-color: var(--accent); }
 .checked summary { cursor: pointer; font-weight: 600; }
 .checked ul { margin: 0.5rem 0; padding-left: 1.1rem; }
 
+.exports { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; margin-bottom: 0.9rem; }
+.btn--small { padding: 0.3rem 0.7rem; font-size: 0.85rem; }
+.decision { border-top: 1px dashed var(--line); margin-top: 0.75rem; padding-top: 0.6rem; display: grid; gap: 0.45rem; }
+.decision__row { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.decision__btn { font: inherit; font-size: 0.85rem; font-weight: 600; padding: 0.3rem 0.8rem; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; }
+.decision__btn:disabled { cursor: default; opacity: 0.7; }
+.decision__btn--accepted.is-active { background: #1f7a45; border-color: #1f7a45; color: #fff; }
+.decision__btn--rejected.is-active { background: #555; border-color: #555; color: #fff; }
+.decision__btn--negotiate.is-active { background: #8a5a00; border-color: #8a5a00; color: #fff; }
+.decision__note { width: 100%; font-size: 0.9rem; resize: vertical; }
+.decision__foot { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
 /* ---------- Project document controls ---------- */
 .doc-item { align-items: flex-start; }
 .doc-item__main { min-width: 0; flex: 1; }

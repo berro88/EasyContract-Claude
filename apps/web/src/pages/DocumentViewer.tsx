@@ -1,10 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   DOCUMENT_ROLE_LABELS, SEVERITIES, SEVERITY_LABELS, TOPIC_LABELS, type BlockNote, type ClauseExplanation, type DocumentRole,
-  type DocumentSummary, type DocumentVersionSummary, type ExtractionBlock, type FindingsResponse, type TopicsResponse,
+  DECISION_LABELS, type DocumentSummary, type DocumentVersionSummary, type ExtractionBlock, type FindingsResponse, type Role, type TopicsResponse,
 } from '@easycontract/shared';
 import { useApi } from '../lib/useApi.ts';
+import { download } from '../lib/api.ts';
+import { DecisionControls } from '../components/DecisionControls.tsx';
 import { usePrefs } from '../lib/prefs.tsx';
 import { Warning } from '../components/Warning.tsx';
 import { POLICY_DISCLAIMER, WARNINGS } from '../lib/warnings.ts';
@@ -23,7 +25,7 @@ export function DocumentViewer() {
   const selectedId = params.get('block');
   const view: View = params.get('view') === 'topics' ? 'topics' : params.get('view') === 'findings' ? 'findings' : 'document';
   const doc = useApi<DocumentDetail>(`/documents/${documentId}`);
-  const project = useApi<{ documents: DocumentSummary[] }>(`/projects/${projectId}`);
+  const project = useApi<{ documents: DocumentSummary[]; role: Role }>(`/projects/${projectId}`);
   const blocks = useApi<{ version: DocumentVersionSummary; blocks: ExtractionBlock[] }>(`/documents/${documentId}/blocks`);
   const topics = useApi<TopicsResponse>(`/documents/${documentId}/topics`);
   const readable = blocks.data?.version.status === 'ready';
@@ -85,7 +87,17 @@ export function DocumentViewer() {
         <div className="viewer__main">
           {view === 'document' && <DocumentText blocks={blocks.data.blocks} selectedId={selectedId} onSelect={(id) => go({ block: id })} />}
           {view === 'topics' && <TopicCards data={topics.data} error={topics.error} selectedId={selectedId} onSelect={(id) => go({ block: id })} />}
-          {view === 'findings' && <FindingsList data={findings.data} error={findings.error} selectedId={selectedId} onSelect={(id) => go({ block: id })} />}
+          {view === 'findings' && (
+            <FindingsList
+              documentId={documentId!}
+              data={findings.data}
+              error={findings.error}
+              selectedId={selectedId}
+              canDecide={!!project.data && ['owner', 'admin', 'reviewer'].includes(project.data.role)}
+              onSelect={(id) => go({ block: id })}
+              onChanged={findings.reload}
+            />
+          )}
         </div>
 
         <aside className="viewer__panel" aria-label="Explanation">
@@ -196,19 +208,42 @@ function TopicCards({ data, error, selectedId, onSelect }: {
   );
 }
 
-function FindingsList({ data, error, selectedId, onSelect }: {
-  data: FindingsResponse | null; error: string | null; selectedId: string | null; onSelect(id: string): void;
+function ExportButtons({ documentId }: { documentId: string }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const get = async (format: 'docx' | 'pdf' | 'xlsx') => {
+    setBusy(format);
+    setError(null);
+    try { await download(`/documents/${documentId}/report?format=${format}`); } catch (e) { setError((e as Error).message); } finally { setBusy(null); }
+  };
+  return (
+    <div className="exports">
+      <span className="muted small">Download report:</span>
+      <button className="btn btn--small" disabled={!!busy} onClick={() => get('docx')}>{busy === 'docx' ? 'Preparing…' : 'Word'}</button>
+      <button className="btn btn--small" disabled={!!busy} onClick={() => get('pdf')}>{busy === 'pdf' ? 'Preparing…' : 'PDF'}</button>
+      <button className="btn btn--small" disabled={!!busy} onClick={() => get('xlsx')}>{busy === 'xlsx' ? 'Preparing…' : 'Excel'}</button>
+      {error && <span className="error small">{error}</span>}
+    </div>
+  );
+}
+
+function FindingsList({ documentId, data, error, selectedId, canDecide, onSelect, onChanged }: {
+  documentId: string; data: FindingsResponse | null; error: string | null; selectedId: string | null; canDecide: boolean;
+  onSelect(id: string): void; onChanged(): void;
 }) {
   const { level } = usePrefs();
   if (error) return <Warning tone="danger">{error}</Warning>;
   if (!data) return <p className="muted">Checking the document…</p>;
+  const decided = data.findings.filter((f) => f.decision?.decision).length;
   return (
     <div>
       <div className="sev-summary">
         {SEVERITIES.map((s) => (
           <span key={s} className={`sev sev--${s}`}><strong>{data.summary[s]}</strong> {SEVERITY_LABELS[s].toLowerCase()}</span>
         ))}
+        <span className="muted small">{decided} of {data.findings.length} decided</span>
       </div>
+      <ExportButtons documentId={documentId} />
       {data.findings.length === 0 && <div className="card empty"><p>None of the checks below found anything in this document.</p></div>}
       {data.findings.map((f) => (
         <article key={f.id} className={`finding finding--${f.severity}`}>
@@ -232,8 +267,20 @@ function FindingsList({ data, error, selectedId, onSelect }: {
             </ul>
           )}
           {f.passages.length === 0 && <p className="muted small">Not stated anywhere in this document.</p>}
+          <DecisionControls documentId={documentId} finding={f} canDecide={canDecide} onSaved={onChanged} />
         </article>
       ))}
+      {data.orphanedDecisions.length > 0 && (
+        <section className="card">
+          <h3>Decisions on findings that no longer appear</h3>
+          <p className="muted small">The wording these findings were about has changed, so the checks no longer raise them. Your decisions are kept here.</p>
+          <ul>
+            {data.orphanedDecisions.map((d) => (
+              <li key={d.findingKey}><strong>{d.findingTitle}</strong>: {d.decision ? DECISION_LABELS[d.decision] : 'no decision'}{d.note ? `, "${d.note}"` : ''}</li>
+            ))}
+          </ul>
+        </section>
+      )}
       <details className="card checked">
         <summary>What we checked</summary>
         <ul>{data.rulesChecked.map((r) => <li key={r.rule}>{r.label}</li>)}</ul>

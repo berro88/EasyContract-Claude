@@ -13,8 +13,8 @@ We build one stage at a time. Every stage ends with a working flow and tests. No
 | 2 | Clause navigation into topic cards, plain-English explanations from templates | Done |
 | 3 | Version comparison, amendment reconciliation, letter matching | Done |
 | 4 | Clause interactions and red/amber/green risk findings | Done |
-| 5 | Human decisions on findings; Word, PDF (and Excel) exports with the disclaimer | Next |
-| 6 | Versioned clause library and playbooks | |
+| 5 | Human decisions on findings; Word, PDF (and Excel) exports with the disclaimer | Done |
+| 6 | Versioned clause library and playbooks | Next |
 | 7 | Contract Wizard (create a contract) | |
 | 8 | Sign-up with policy acceptance, invites, hardening, .doc and optional OCR, private-preview deploy config | |
 
@@ -78,6 +78,15 @@ In scope: rule-based findings for each document, graded red (high concern), ambe
 - Stage 3 follow-up: an amendment that couldn't be read is now named in a warning on the effective position, not skipped quietly.
 
 Out of scope for Stage 4: accepting or rejecting findings and exports (Stage 5), playbook-driven findings (Stage 6).
+
+## Stage 5 scope
+
+In scope:
+- **Decisions on findings:** Accept, Reject or Negotiate, plus a note. A decision is keyed by the finding's rule, title and clause numbers, so it survives reruns and new versions. It also stores a fingerprint of the wording; if that wording changes in a later version, the decision is flagged for review. Decisions on findings that no longer appear are kept and listed.
+- Only owners, admins and reviewers can decide. The audit log records the decision but never the note.
+- **Exports:** an editable Word report and a PDF report with the disclaimer in the footer of every page (and at the top), plus an Excel workbook. In Excel every sheet starts with the disclaimer and repeats it in the print footer; findings are typed values and every derived figure (counts, totals, undecided) is a live formula.
+
+Out of scope for Stage 5: playbooks (Stage 6), drafting (Stage 7).
 
 ## Try it
 

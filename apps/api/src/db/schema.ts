@@ -134,6 +134,22 @@ CREATE TABLE IF NOT EXISTS extraction_blocks (
 );
 CREATE INDEX IF NOT EXISTS idx_blocks_version ON extraction_blocks(tenant_id, version_id, seq);
 
+-- A person's decision on a finding, keyed so it survives reruns and new versions.
+-- The note is the user's own text about the finding, not contract text.
+CREATE TABLE IF NOT EXISTS finding_decisions (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  document_id TEXT NOT NULL REFERENCES documents(id),
+  finding_key TEXT NOT NULL,
+  finding_title TEXT NOT NULL,
+  decision TEXT CHECK (decision IN ('accepted','rejected','negotiate')),
+  note TEXT NOT NULL DEFAULT '',
+  wording_hash TEXT NOT NULL,
+  decided_by TEXT NOT NULL REFERENCES users(id),
+  decided_at TEXT NOT NULL,
+  UNIQUE (document_id, finding_key)
+);
+
 CREATE TABLE IF NOT EXISTS comments (
   id TEXT PRIMARY KEY,
   tenant_id TEXT NOT NULL REFERENCES tenants(id),

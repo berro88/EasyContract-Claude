@@ -35,9 +35,10 @@ const ref = (b: ExtractionBlock) => (b.clauseNumber ? `clause ${b.clauseNumber}`
 const Ref = (b: ExtractionBlock) => { const r = ref(b); return r[0].toUpperCase() + r.slice(1); };
 const passage = (b: ExtractionBlock, role: FindingPassage['role'] = 'primary'): FindingPassage => ({ blockId: b.id, clauseNumber: b.clauseNumber, excerpt: excerpt(b), role });
 
-function finding(rule: FindingRule, severity: Severity, f: Omit<Finding, 'id' | 'rule' | 'severity'>): Finding {
+function finding(rule: FindingRule, severity: Severity, f: Omit<Finding, 'id' | 'key' | 'wordingHash' | 'rule' | 'severity'>): Finding {
   const key = `${rule}|${severity}|${f.passages.filter((p) => p.role === 'primary').map((p) => p.blockId).sort().join(',')}|${f.title}`;
-  return { id: 'fnd_' + createHash('sha256').update(key).digest('hex').slice(0, 20), rule, severity, ...f };
+  // key and wordingHash are filled in by runFindings, which has the full passage text.
+  return { id: 'fnd_' + createHash('sha256').update(key).digest('hex').slice(0, 20), key: '', wordingHash: '', rule, severity, ...f };
 }
 
 const inTopic = (ctx: Ctx, t: Topic) => ctx.blocks.filter((b) => ctx.topics.get(b.id)?.includes(t));
@@ -365,11 +366,23 @@ export function runFindings(input: FindingsInput): FindingsResponse {
     ...referenceRule(ctx),
     ...essentialsRule(ctx),
   ].sort((a, b) => ORDER[a.severity] - ORDER[b.severity]);
+
+  // Keys survive new versions: they use clause numbers, not block ids. The
+  // wording hash changes whenever the passages a finding rests on change.
+  const byId = new Map(all.map((b) => [b.id, b]));
+  const hash = (s: string) => createHash('sha256').update(s).digest('hex').slice(0, 24);
+  for (const f of findings) {
+    const primary = f.passages.filter((p) => p.role === 'primary');
+    const basis = primary.length ? primary : f.passages;
+    f.key = 'fk_' + hash(`${f.rule}|${f.title}|${basis.map((p) => p.clauseNumber ?? '-').sort().join(',')}`);
+    f.wordingHash = hash(basis.map((p) => (byId.get(p.blockId)?.text ?? '').replace(/\s+/g, ' ').trim().toLowerCase()).join('\n'));
+  }
   const summary: Record<Severity, number> = { red: 0, amber: 0, green: 0 };
   for (const f of findings) summary[f.severity]++;
   return {
     versionId: input.versionId,
     findings,
+    orphanedDecisions: [],
     summary,
     rulesChecked: FINDING_RULES.filter((r) => r !== 'missing_essentials' || FULL_CONTRACT_ROLES.includes(input.role))
       .map((rule) => ({ rule, label: FINDING_RULE_LABELS[rule] })),

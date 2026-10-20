@@ -397,9 +397,30 @@ export interface FindingPassage {
   role: 'primary' | 'related';
 }
 
+export const DECISIONS = ['accepted', 'rejected', 'negotiate'] as const;
+export type Decision = (typeof DECISIONS)[number];
+export const DECISION_LABELS: Record<Decision, string> = { accepted: 'Accepted', rejected: 'Rejected', negotiate: 'Negotiate' };
+
+/** A person's decision on a finding. Kept across reruns and new versions. */
+export interface FindingDecision {
+  findingKey: string;
+  findingTitle: string;
+  decision: Decision | null;
+  note: string;
+  decidedBy: string;
+  decidedAt: string;
+  /** The passages the finding rests on have different wording from when the decision was made. */
+  wordingChanged: boolean;
+}
+
 export interface Finding {
-  /** Stable for the same rule and passages, so later stages can attach decisions. */
+  /** Stable for the same rule and passages in one version. */
   id: string;
+  /** Stable across versions (rule, title and clause numbers), so decisions carry over. */
+  key: string;
+  /** Fingerprint of the wording of the passages the finding rests on. */
+  wordingHash: string;
+  decision?: FindingDecision | null;
   rule: FindingRule;
   severity: Severity;
   title: string;
@@ -413,6 +434,8 @@ export interface Finding {
 export interface FindingsResponse {
   versionId: string;
   findings: Finding[];
+  /** Decisions on findings that no longer appear (for example, the wording was fixed). */
+  orphanedDecisions: FindingDecision[];
   summary: Record<Severity, number>;
   rulesChecked: { rule: FindingRule; label: string }[];
 }

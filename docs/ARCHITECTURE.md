@@ -19,6 +19,7 @@ apps/api        Fastify API on :3001, SQLite via node:sqlite
   src/lib         access policy, storage, audit and usage helpers
   src/interfaces  extension points (see below)
   src/providers   DeterministicProvider
+  src/reports     Word, PDF and Excel writers
   src/routes      tenant, projects, documents and blocks
   scripts         synthetic sample generator
 apps/web        Vite + React on :5173, proxies /api to :3001
@@ -71,6 +72,12 @@ Quality checks report files as "couldn't read this" (not as a success) when they
 `src/analysis/findings.ts` runs six rules over a document's current wording (tracked changes and headings excluded), using the Stage 2 topic sorting to find the relevant clauses. Each finding carries a stable id (rule, severity and primary passages), so Stage 5 can attach decisions to it. Findings are computed on request and never stored, so they always reflect the latest rules.
 
 Two guarantees are tested on every finding: each passage it cites exists in the document, and every number in its wording appears in the document. Periods are compared only when their units match (calendar days with calendar days); nothing is converted or added up.
+
+## Decisions and reports
+
+- `finding_decisions` holds one row per document and finding key. The key (rule, title, clause numbers) is version-independent; `wording_hash` fingerprints the wording of the finding's primary passages when the decision was saved, and a mismatch later sets `wordingChanged`.
+- `src/reports/model.ts` is a small document model (headings, paragraphs, quotes, labels, warnings). `docx.ts` writes WordprocessingML directly, with the disclaimer in a footer referenced by the section (so it is on every page). `pdf.ts` uses pdf-lib and draws the disclaimer on every page after layout. `xlsx.ts` writes SpreadsheetML with typed cells for data and `<f>` formulas for anything derived, and sets the workbook to recalculate on open.
+- Reports are generated on request and never stored.
 
 ## Extension points
 

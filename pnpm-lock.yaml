@@ -25,6 +25,9 @@ importers:
       jszip:
         specifier: ^3.10.1
         version: 3.10.2
+      pdf-lib:
+        specifier: ^1.17.1
+        version: 1.17.1
       pdfjs-dist:
         specifier: 4.10.38
         version: 4.10.38
@@ -32,9 +35,6 @@ importers:
       '@types/node':
         specifier: ^22.15.0
         version: 22.20.5
-      pdf-lib:
-        specifier: ^1.17.1
-        version: 1.17.1
       tsx:
         specifier: ^4.19.4
         version: 4.23.15
