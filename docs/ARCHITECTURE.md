@@ -20,6 +20,7 @@ apps/api        Fastify API on :3001, SQLite via node:sqlite
   src/interfaces  extension points (see below)
   src/providers   DeterministicProvider
   src/library     clause library and playbooks (versioned), PlaybookSource
+  src/ocr         optional local OCR (Tesseract)
   src/reports     Word, PDF and Excel writers
   src/wizard      Contract Wizard templates and assembly
   src/routes      tenant, projects, documents and blocks
@@ -94,6 +95,16 @@ Two guarantees are tested on every finding: each passage it cites exists in the 
 - `src/wizard/engine.ts` pre-fills from the company profile, cleans answers against the question list, lists missing essentials, assembles sections (playbook, then library, then template) and converts the draft into blocks so `runFindings` can check it like an uploaded document.
 - `drafts` stores each draft's type, title and answers. Contract exports reuse the Stage 5 Word and PDF writers.
 
+## Accounts, security and deployment
+
+- **Sign-in:** `src/lib/auth.ts` hashes passwords with scrypt, and stores sessions and invites by the SHA-256 of their random tokens, so a database leak exposes no usable token. The session cookie is HttpOnly and SameSite=Lax (and Secure in production). Writes that arrive with a cookie from another site's origin are refused.
+- **Request pipeline (`src/app.ts`):** security headers → optional preview password (HTTP Basic, from `PREVIEW_PASSWORD`) → session or, outside production, the `x-user-id` dev header → policy check (session users must have accepted the current `POLICY_VERSION`) → routes. Public routes: health, policy text, sign-up, sign-in, sign-out and invite acceptance.
+- **Invites** live in `tenant_invites`; accepting one adds a membership with the invited role and records the policy acceptance.
+- **Logging:** Fastify's default serializers log method, URL and status only. Error logs carry the message and code only. A test feeds contract text through uploads, errors and form fields and checks none of it reaches the log.
+- **.doc files** are read with `word-extractor` (`src/extraction/doc.ts`), anchored by paragraph position.
+- **OCR** is an `OcrProvider` (`src/interfaces`). `TesseractCliOcr` (`src/ocr/tesseract.ts`) renders one page at a time with `pdftoppm` and reads it with `tesseract`, locally. It is used only when `OCR_ENABLED=1` and both tools are installed, and only for PDFs with no usable text layer. OCR passages are flagged `read_from_scan` with a per-passage confidence.
+- **Deployment:** in production the API also serves the built web app (`WEB_DIST_DIR`), skips the demo seed and listens on `0.0.0.0`. See `docs/DEPLOY.md`.
+
 ## Extension points
 
 Declared in `apps/api/src/interfaces/index.ts`:
@@ -107,6 +118,7 @@ Declared in `apps/api/src/interfaces/index.ts`:
 | `ObligationNotifier` | none | Reminders for key dates and obligations |
 | `Connector` (`onedrive`, `sharepoint`, `outlook`, `esignature`, `crm`) | none | Import from and export to other systems |
 | `ResearchProvider` | none | Live legal research; citations carry jurisdiction, url, provision, verification date, binding or commentary |
+| `OcrProvider` | `TesseractCliOcr` (optional) | Other local OCR engines |
 
 ## Roadmap after Stage 8
 

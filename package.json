@@ -7,7 +7,8 @@
     "seed": "pnpm --filter @easycontract/api seed",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck",
-    "build": "pnpm --filter @easycontract/web build"
+    "build": "pnpm --filter @easycontract/web build",
+    "start:prod": "pnpm build && cd apps/api && NODE_ENV=production WEB_DIST_DIR=../web/dist tsx src/index.ts"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

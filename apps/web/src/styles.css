@@ -104,6 +104,7 @@ a { color: var(--accent); }
 /* ---------- Layout ---------- */
 .main { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
 .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.5rem; margin-bottom: 1rem; }
+.card > h1:first-child, .card > h2:first-child { margin-top: 0; }
 .narrow { max-width: 640px; }
 .prose { max-width: 760px; }
 .row-between { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
@@ -275,6 +276,19 @@ a.list__item:hover { border-color: var(--accent); }
 .decision__btn--negotiate.is-active { background: #8a5a00; border-color: #8a5a00; color: #fff; }
 .decision__note { width: 100%; font-size: 0.9rem; resize: vertical; }
 .decision__foot { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+
+/* ---------- Sign-in ---------- */
+.auth { display: grid; place-items: start center; padding-top: 1rem; }
+.auth__card { width: 100%; max-width: 520px; }
+.consent__box { max-height: 220px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; padding: 0.75rem; background: var(--bg); font-size: 0.875rem; }
+.consent__box p { margin: 0.4rem 0 0; }
+.consent__tick { display: flex; gap: 0.5rem; align-items: flex-start; margin-top: 0.6rem; font-size: 0.9rem; }
+.consent__tick input { margin-top: 0.2rem; }
+.signout { margin-left: 0.6rem; font-size: 0.85rem; }
+.invite-form { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); align-items: start; }
+.invite-link { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
+.invite-link input { flex: 1; min-width: 0; }
+.block__tag--scan { background: #fff4d6; color: #4a3300; border-color: #e8c766; }
 
 /* ---------- Contract Wizard ---------- */
 .choice--button { font: inherit; text-align: left; cursor: pointer; width: 100%; }

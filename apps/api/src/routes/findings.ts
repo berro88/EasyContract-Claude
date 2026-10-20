@@ -8,7 +8,7 @@ import { newId, now } from '../db/index.ts';
 import { type Actor, type Services, HttpError, audit, fileName, notFound, requireCan } from '../lib/context.ts';
 import type { PlaybookSource } from '../interfaces/index.ts';
 import { runFindings } from '../analysis/findings.ts';
-import { type DocumentRow, type VersionRow, latestVersion, listDocuments, loadDocument, versionBlocks } from './documents.ts';
+import { type DocumentRow, type VersionRow, SCAN_WARNING, latestVersion, listDocuments, loadDocument, versionBlocks } from './documents.ts';
 import { loadProject } from './projects.ts';
 import type { ReportBlock, ReportDoc } from '../reports/model.ts';
 import { renderDocx } from '../reports/docx.ts';
@@ -62,7 +62,10 @@ function reviewReport(db: Db, actor: Actor, doc: DocumentRow, v: VersionRow, res
 
   blocks.push({ type: 'heading', level: 1, text: 'Summary' });
   blocks.push({ type: 'paragraph', text: `${res.summary.red} high concern, ${res.summary.amber} to check, ${res.summary.green} looking covered. Decisions recorded on ${decided} of ${res.findings.length} findings.` });
-  const flagged = versionBlocks(db, actor.tenantId, v.id).filter((b) => b.flags.includes('embedded_instruction'));
+  const versionText = versionBlocks(db, actor.tenantId, v.id);
+  const scanned = versionText.filter((b) => b.flags.includes('read_from_scan'));
+  if (scanned.length) blocks.push({ type: 'warning', text: SCAN_WARNING });
+  const flagged = versionText.filter((b) => b.flags.includes('embedded_instruction'));
   if (flagged.length) {
     blocks.push({ type: 'warning', text: `This document contains ${flagged.length} passage(s) with wording that looks like instructions to software. EasyContract treated them as ordinary text and did not act on them. Ask why they are in the contract.` });
   }
@@ -77,7 +80,8 @@ function reviewReport(db: Db, actor: Actor, doc: DocumentRow, v: VersionRow, res
     if (f.cannotWorkOut) blocks.push({ type: 'paragraph', text: `Can't be worked out: ${f.cannotWorkOut}`, bold: true });
     if (f.reference) blocks.push({ type: 'quote', label: `${f.reference.label}:`, text: f.reference.text });
     for (const p of f.passages) {
-      blocks.push({ type: 'quote', label: `${p.role === 'related' ? 'Related, ' : ''}${p.clauseNumber ? `clause ${p.clauseNumber}` : 'passage'}:`, text: p.excerpt });
+      const fromScan = scanned.some((b) => b.id === p.blockId);
+      blocks.push({ type: 'quote', label: `${p.role === 'related' ? 'Related, ' : ''}${p.clauseNumber ? `clause ${p.clauseNumber}` : 'passage'}${fromScan ? ' (read from a scan, check the wording)' : ''}:`, text: p.excerpt });
     }
     if (!f.passages.length) blocks.push({ type: 'paragraph', text: 'Not stated anywhere in this document.', muted: true });
     const d = f.decision;
@@ -108,12 +112,13 @@ function reviewReport(db: Db, actor: Actor, doc: DocumentRow, v: VersionRow, res
   };
 }
 
-function reviewWorkbook(doc: DocumentRow, v: VersionRow, res: FindingsResponse) {
+function reviewWorkbook(doc: DocumentRow, v: VersionRow, res: FindingsResponse, fromScan: boolean) {
   const header = ['Severity', 'Check', 'Finding', 'Clauses', 'Explanation', "Can't be worked out", 'Decision', 'Note', 'Wording changed since decision'];
-  const first = 4; // data starts on sheet row 4 (row 1 is the disclaimer)
+  const first = fromScan ? 5 : 4; // data starts after the disclaimer, title (and scan warning) and header rows
   const last = first + Math.max(res.findings.length, 1) - 1;
   const rows: Cell[][] = [
     [`Findings: ${doc.title} (${v.file_name}, version ${v.version_number})`],
+    ...(fromScan ? [[`Warning: ${SCAN_WARNING}`] as Cell[]] : []),
     header,
     ...res.findings.map((f) => [
       SEVERITY_LABELS[f.severity], FINDING_RULE_LABELS[f.rule], f.title,
@@ -198,7 +203,7 @@ export const findingsRoutes = ({ db, playbooks }: Services) => async (app: Fasti
     const { doc, v } = loadReadable(db, req.actor, documentId);
     const res = withDecisions(db, req.actor.tenantId, documentId, (await computeFindings(db, playbooks, req.actor, doc, v)));
     const bytes = format === 'xlsx'
-      ? await renderXlsx(reviewWorkbook(doc, v, res), POLICY_DISCLAIMER)
+      ? await renderXlsx(reviewWorkbook(doc, v, res, versionBlocks(db, req.actor.tenantId, v.id).some((b) => b.flags.includes('read_from_scan'))), POLICY_DISCLAIMER)
       : format === 'docx' ? await renderDocx(reviewReport(db, req.actor, doc, v, res)) : await renderPdf(reviewReport(db, req.actor, doc, v, res));
     audit(db, { tenantId: req.actor.tenantId, userId: req.actor.userId, action: 'report.export', resourceType: 'documents', resourceId: documentId, outcome: 'allowed', metadata: { format } });
 

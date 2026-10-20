@@ -87,3 +87,15 @@ export interface ResearchCitation {
 export interface ResearchProvider {
   research(input: { tenantId: string; question: string; jurisdiction: string }): Promise<ResearchCitation[]>;
 }
+
+/** One paragraph read from a scanned page, with the reader's confidence (0-100). */
+export interface OcrParagraph {
+  text: string;
+  confidence: number;
+}
+
+/** Optional, local text recognition for scanned PDFs. Works on one page at a time. */
+export interface OcrProvider {
+  readonly key: string;
+  recognisePage(pdf: Uint8Array, pageNumber: number): Promise<OcrParagraph[]>;
+}

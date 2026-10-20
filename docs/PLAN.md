@@ -16,7 +16,7 @@ We build one stage at a time. Every stage ends with a working flow and tests. No
 | 5 | Human decisions on findings; Word, PDF (and Excel) exports with the disclaimer | Done |
 | 6 | Versioned clause library and playbooks | Done |
 | 7 | Contract Wizard (create a contract) | Done |
-| 8 | Sign-up with policy acceptance, invites, hardening, .doc and optional OCR, private-preview deploy config | Next |
+| 8 | Sign-up with policy acceptance, invites, hardening, .doc and optional OCR, private-preview deploy config | Done |
 
 ## Stage 1 scope
 
@@ -109,6 +109,17 @@ In scope:
 
 Template wording is a general starting point, not tailored to any law. Employment and other regulated areas show prompts to check what the law requires.
 
+## Stage 8 scope
+
+In scope:
+- **Sign-up** creates a company and its owner and requires accepting the current, versioned usage policy; the user, company, version and date are recorded in `policy_acceptances`. When the policy version changes, signed-in people must accept the new version before doing anything else.
+- **Sign-in** with email and password (scrypt hashes), HttpOnly session cookies (Secure in production), sign-out, and a limit on repeated failed sign-ins.
+- **Company accounts with invited users:** owners and admins create one-time invite links with a role (no emails are sent), see pending invites, withdraw them, and change members' roles. Only owners manage owners, and a company always keeps an owner.
+- **Hardening:** security headers on every response, cross-site write protection for cookie sessions, the dev sign-in shortcut always off in production, tests that contract text never reaches the logs, tenant isolation tests for every new route, existing upload type and size limits, and secrets read only from environment variables.
+- **Old .doc files** are read locally (paragraph-anchored, passages re-open from the original).
+- **Optional local OCR** (Tesseract and Poppler) for scans: one page at a time, a confidence per passage, and "read from a scan, check the wording" warnings on screen and in exports. Off unless switched on.
+- **Deployment config** for a password-protected private preview on Render (free) or Fly.io: `Dockerfile`, `render.yaml`, `fly.toml` and `docs/DEPLOY.md`. Not deployed.
+
 ## Try it
 
 ```bash
@@ -117,4 +128,4 @@ pnpm --filter @easycontract/api samples   # writes synthetic contracts to ./samp
 pnpm dev                                   # API on :3001, web on :5173
 ```
 
-Open http://localhost:5173, choose **Understand a contract**, and upload the files from `samples/`. `sample-master-services-agreement.docx` has one section per topic. For Stage 3, add `sample-amendment-1.docx` (role: Amendment), `sample-msa-proposal-FINAL.docx` (Proposal) and `sample-msa-increase-letter.pdf` (Increase letter), mark the agreement and amendment as Signed, then open **Compare and reconcile**. For Stage 4, open `sample-risky-transport-agreement.docx` and choose **Findings**. For Stage 6, open **Library → Playbooks**, choose **Use this version** on the example playbook, then look at the Findings of any agreement. For Stage 7, fill in **Company profile**, then choose **Create a contract** on the home page.
+Open http://localhost:5173. In local development you can **continue as the demo owner** from the sign-in page, or create a real account. Choose **Understand a contract**, and upload the files from `samples/`. `sample-master-services-agreement.docx` has one section per topic. For Stage 3, add `sample-amendment-1.docx` (role: Amendment), `sample-msa-proposal-FINAL.docx` (Proposal) and `sample-msa-increase-letter.pdf` (Increase letter), mark the agreement and amendment as Signed, then open **Compare and reconcile**. For Stage 4, open `sample-risky-transport-agreement.docx` and choose **Findings**. For Stage 6, open **Library → Playbooks**, choose **Use this version** on the example playbook, then look at the Findings of any agreement. For Stage 7, fill in **Company profile**, then choose **Create a contract** on the home page.

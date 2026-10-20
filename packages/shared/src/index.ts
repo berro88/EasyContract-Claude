@@ -56,11 +56,17 @@ export type BlockAnchor =
   | {
       format: 'pdf';
       page: number; // 1-based
-      charStart: number; // offset into the page's extracted text
+      charStart: number; // offset into the page's extracted text (or its OCR text)
       charEnd: number; // exclusive
+      /** Set when the text was read from a scan by OCR: 0-100. */
+      ocrConfidence?: number;
+    }
+  | {
+      format: 'doc'; // Word 97-2003
+      paragraphIndex: number; // position of the paragraph in the body text
     };
 
-export type BlockFlag = 'embedded_instruction';
+export type BlockFlag = 'embedded_instruction' | 'read_from_scan';
 
 export interface ExtractionBlock {
   id: string;
@@ -127,6 +133,8 @@ export interface Me {
   role: Role;
   plan: string | null;
   policyAccepted: boolean;
+  /** 'dev' only in local development, when signed in with the x-user-id shortcut. */
+  authMode: 'session' | 'dev';
 }
 
 /** A plain-English note about a block. Always points back at its source. */
@@ -553,5 +561,5 @@ export interface DraftPreview {
 
 export const UPLOAD_LIMITS = {
   maxBytes: 20 * 1024 * 1024,
-  extensions: ['.pdf', '.docx'],
+  extensions: ['.pdf', '.docx', '.doc'],
 } as const;

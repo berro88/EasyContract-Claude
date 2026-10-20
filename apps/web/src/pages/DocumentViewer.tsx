@@ -13,7 +13,8 @@ import { POLICY_DISCLAIMER, WARNINGS } from '../lib/warnings.ts';
 
 interface DocumentDetail { id: string; title: string; role: DocumentRole; versions: DocumentVersionSummary[] }
 interface BlockDetail { block: ExtractionBlock; note: BlockNote; heading: string | null; explanations: ClauseExplanation[]; disclaimer: string }
-interface Passage { text: string | null; verified: boolean; location: string; before: string; after: string }
+interface Passage { text: string | null; verified: boolean; fromScan?: boolean; confidence?: number | null; location: string; before: string; after: string }
+const LOW_CONFIDENCE = 70;
 type View = 'document' | 'topics' | 'findings';
 
 const SAFETY_LINE = /^(Warning:|Tracked changes|Unaccepted revision)/;
@@ -55,6 +56,7 @@ export function DocumentViewer() {
       </div>
 
       {version.status === 'unreadable' && <Warning tone="danger">{version.qualityMessage ?? WARNINGS.unreadable}</Warning>}
+      {version.status === 'ready' && blocks.data.blocks.some((b) => b.flags.includes('read_from_scan')) && <Warning>{WARNINGS.fromScan}</Warning>}
 
       <div className="viewer__grid">
         <nav className="sidenav" aria-label="Sections">
@@ -140,6 +142,9 @@ function DocumentText({ blocks, selectedId, onSelect }: { blocks: ExtractionBloc
               {b.clauseNumber && <span className="block__num">{b.clauseNumber}</span>}
               {isTracked(b) && <span className="block__tag">{b.kind === 'tracked_insertion' ? 'Added' : 'Deleted'}</span>}
               {b.flags.includes('embedded_instruction') && <span className="block__tag block__tag--bad">Check this</span>}
+              {b.anchor.format === 'pdf' && b.anchor.ocrConfidence !== undefined && b.anchor.ocrConfidence < LOW_CONFIDENCE && (
+                <span className="block__tag block__tag--scan" title={WARNINGS.lowConfidence}>Hard to read</span>
+              )}
               <span className="block__text">{b.text}</span>
             </button>
           </div>
@@ -353,7 +358,9 @@ function BlockPanel({ blockId, showOpenInDocument, onOpenInDocument }: { blockId
       {passage.loading && <p className="muted">Opening the original…</p>}
       {passage.data && (
         <>
-          {!passage.data.verified && <Warning tone="danger">{WARNINGS.unverified}</Warning>}
+          {passage.data.fromScan
+            ? <Warning>{WARNINGS.fromScan}{passage.data.confidence != null && ` Reading confidence here: ${passage.data.confidence}%.`}</Warning>
+            : !passage.data.verified && <Warning tone="danger">{WARNINGS.unverified}</Warning>}
           <blockquote className="passage">
             {passage.data.before && <span className="passage__ctx">…{passage.data.before}{'\n'}</span>}
             <mark>{passage.data.text}</mark>

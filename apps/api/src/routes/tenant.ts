@@ -18,7 +18,7 @@ export const tenantRoutes = ({ db }: Services) => async (app: FastifyInstance) =
     const accepted = db.prepare(
       `SELECT 1 FROM policy_acceptances WHERE user_id = ? AND tenant_id = ? AND document_key = ? AND version = ?`,
     ).get(userId, tenantId, POLICY_KEY, POLICY_VERSION);
-    return { user, tenant, role, plan: sub?.plan_id ?? null, policyAccepted: !!accepted };
+    return { user, tenant, role, plan: sub?.plan_id ?? null, policyAccepted: !!accepted, authMode: req.actor.via };
   });
 
   app.get('/api/policy', async () => ({

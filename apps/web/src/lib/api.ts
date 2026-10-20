@@ -1,37 +1,49 @@
-// Thin fetch wrapper. In development the signed-in user is picked by the
-// `x-user-id` header; real sign-in replaces this in Stage 8.
+// Thin fetch wrapper. Sign-in uses an HttpOnly session cookie. In local
+// development only, the `x-user-id` header can stand in for signing in
+// ("Continue as demo owner"); the server ignores it in production.
 
 const DEV_USER_KEY = 'easycontract.devUser';
 export const DEFAULT_DEV_USER = 'user_owner';
 
-export function devUser(): string {
+/** The dev user to send, or null when the dev shortcut is off. */
+export function devUser(): string | null {
+  if (!import.meta.env.DEV) return null;
   try {
-    return localStorage.getItem(DEV_USER_KEY) || DEFAULT_DEV_USER;
+    const v = localStorage.getItem(DEV_USER_KEY);
+    return v === 'off' ? null : v || DEFAULT_DEV_USER;
   } catch {
     return DEFAULT_DEV_USER;
   }
 }
 
+export function setDevUser(value: string | 'off') {
+  try { localStorage.setItem(DEV_USER_KEY, value); } catch { /* convenience only */ }
+}
+
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(public status: number, message: string, public code?: string) {
     super(message);
   }
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+function headersFor(init: RequestInit) {
   const headers = new Headers(init.headers);
-  headers.set('x-user-id', devUser());
+  const dev = devUser();
+  if (dev) headers.set('x-user-id', dev);
   if (init.body && !(init.body instanceof FormData)) headers.set('content-type', 'application/json');
-  const res = await fetch(`/api${path}`, { ...init, headers });
+  return headers;
+}
+
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(`/api${path}`, { ...init, headers: headersFor(init), credentials: 'same-origin' });
   const body = res.headers.get('content-type')?.includes('json') ? await res.json() : null;
-  if (!res.ok) throw new ApiError(res.status, body?.error ?? (res.status === 404 ? 'Not found.' : 'Something went wrong.'));
+  if (!res.ok) throw new ApiError(res.status, body?.error ?? (res.status === 404 ? 'Not found.' : 'Something went wrong.'), body?.code);
   return body as T;
 }
 
 /** Downloads a file from the API (the dev sign-in header means a plain link won't do). */
 export async function download(path: string) {
-  const headers = new Headers({ 'x-user-id': devUser() });
-  const res = await fetch(`/api${path}`, { headers });
+  const res = await fetch(`/api${path}`, { headers: headersFor({}), credentials: 'same-origin' });
   if (!res.ok) {
     const body = res.headers.get('content-type')?.includes('json') ? await res.json() : null;
     throw new ApiError(res.status, body?.error ?? 'The download failed.');

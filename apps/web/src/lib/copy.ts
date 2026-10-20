@@ -27,7 +27,7 @@ const COPY = {
     comingSoon: 'This feature is coming soon.',
     newProject: 'New project',
     noProjects: 'You have no projects yet. Create one to upload documents.',
-    uploadHint: 'Drag a PDF or Word (.docx) file here, or click to choose.',
+    uploadHint: 'Drag a PDF or Word file here, or click to choose.',
     profileSaved: 'Profile saved.',
   },
   professional: {
@@ -40,7 +40,7 @@ const COPY = {
     comingSoon: 'This workflow is not yet available.',
     newProject: 'New matter',
     noProjects: 'No matters on file. Create a matter to upload documents.',
-    uploadHint: 'Drag a PDF or DOCX file here, or click to select.',
+    uploadHint: 'Drag a PDF, DOCX or DOC file here, or click to select.',
     profileSaved: 'Company profile updated.',
   },
 } satisfies Record<Theme, Record<string, string>>;

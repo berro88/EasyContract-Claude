@@ -10,7 +10,7 @@ export interface RawBlock {
 }
 
 export interface ExtractionResult {
-  format: 'pdf' | 'docx';
+  format: 'pdf' | 'docx' | 'doc';
   pageCount: number | null;
   blocks: RawBlock[];
   /** Set when the file opened but we could not read usable text from it. */
@@ -84,5 +84,6 @@ export function stableBlockId(versionId: string, anchorKey: string): string {
 
 export function anchorKey(anchor: BlockAnchor, kind: BlockKind, occurrence: number): string {
   if (anchor.format === 'pdf') return `pdf|${anchor.page}|${anchor.charStart}|${anchor.charEnd}`;
+  if (anchor.format === 'doc') return `doc|${anchor.paragraphIndex}|${occurrence}`;
   return `docx|${anchor.part}|${anchor.paragraphId}|${kind}|${anchor.revisionId ?? ''}|${occurrence}`;
 }

@@ -2,7 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { Role } from '@easycontract/shared';
 import type { Db } from '../db/index.ts';
 import { newId, now } from '../db/index.ts';
-import type { AiProvider, PlaybookSource } from '../interfaces/index.ts';
+import type { AiProvider, OcrProvider, PlaybookSource } from '../interfaces/index.ts';
 import type { FileStorage } from './storage.ts';
 import type { Config } from '../config.ts';
 import { type Action, can } from './access-policy.ts';
@@ -12,6 +12,8 @@ export interface Services {
   storage: FileStorage;
   ai: AiProvider;
   playbooks: PlaybookSource;
+  /** Present only when local OCR is switched on and available. */
+  ocr?: OcrProvider | null;
   config: Config;
 }
 
@@ -19,6 +21,8 @@ export interface Actor {
   userId: string;
   tenantId: string;
   role: Role;
+  /** How the request was signed in: a session cookie, or the dev-only header. */
+  via: 'session' | 'dev';
 }
 
 declare module 'fastify' {
@@ -28,7 +32,7 @@ declare module 'fastify' {
 }
 
 export class HttpError extends Error {
-  constructor(public status: number, message: string) {
+  constructor(public status: number, message: string, public code?: string) {
     super(message);
   }
 }

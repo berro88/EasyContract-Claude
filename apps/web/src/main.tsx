@@ -2,7 +2,9 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { PrefsProvider } from './lib/prefs.tsx';
-import { Layout } from './components/Layout.tsx';
+import { Layout, PublicLayout } from './components/Layout.tsx';
+import { AcceptInvite, Login, Signup } from './pages/Auth.tsx';
+import { Team } from './pages/Team.tsx';
 import { Home } from './pages/Home.tsx';
 import { CreateStart, DraftWizard } from './pages/Create.tsx';
 import { CompanyProfilePage } from './pages/CompanyProfile.tsx';
@@ -19,6 +21,11 @@ createRoot(document.getElementById('root')!).render(
     <PrefsProvider>
       <BrowserRouter>
         <Routes>
+          <Route element={<PublicLayout />}>
+            <Route path="login" element={<Login />} />
+            <Route path="signup" element={<Signup />} />
+            <Route path="invite/:token" element={<AcceptInvite />} />
+          </Route>
           <Route element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="create" element={<CreateStart />} />
@@ -26,6 +33,7 @@ createRoot(document.getElementById('root')!).render(
             <Route path="profile" element={<CompanyProfilePage />} />
             <Route path="policy" element={<PolicyPage />} />
             <Route path="library" element={<Library />} />
+            <Route path="team" element={<Team />} />
             <Route path="projects" element={<Projects />} />
             <Route path="projects/new" element={<Projects startNew />} />
             <Route path="projects/:projectId" element={<ProjectPage />} />

@@ -8,8 +8,11 @@ import type { Db } from '../db/index.ts';
 import { newId, now } from '../db/index.ts';
 import { type Actor, type Services, HttpError, audit, auditCrossTenant, notFound, recordUsage, requireCan } from '../lib/context.ts';
 import { MIME, UnsupportedFileError, detectFileKind, extract } from '../extraction/index.ts';
-import { anchorKey, detectFlags, stableBlockId } from '../extraction/common.ts';
+import { anchorKey, assessQuality, detectFlags, stableBlockId, typedClauseNumber } from '../extraction/common.ts';
+import type { ExtractionResult, RawBlock } from '../extraction/index.ts';
+import type { OcrProvider } from '../interfaces/index.ts';
 import { extractDocx } from '../extraction/docx.ts';
+import { extractDoc } from '../extraction/doc.ts';
 import { readPdfPageText } from '../extraction/pdf.ts';
 import { loadProject } from './projects.ts';
 import { classifyBlocks } from '../analysis/topics.ts';
@@ -81,6 +84,7 @@ export function loadDocument(db: Db, actor: Actor, documentId: string) {
 }
 
 export function describeLocation(anchor: BlockAnchor, level: ExpertiseLevel): string {
+  if (anchor.format === 'doc') return level === 'plain' ? 'the Word document' : `paragraph ${anchor.paragraphIndex + 1} of the Word 97-2003 document`;
   if (anchor.format === 'pdf') {
     return level === 'plain' ? `page ${anchor.page}` : `page ${anchor.page}, characters ${anchor.charStart}–${anchor.charEnd}`;
   }
@@ -91,6 +95,31 @@ export function describeLocation(anchor: BlockAnchor, level: ExpertiseLevel): st
 }
 
 const MAX_TITLE = 200;
+const MAX_OCR_PAGES = 50;
+export const SCAN_WARNING = 'Read from a scan. Automatic reading can get words and numbers wrong: check the wording against the original before relying on it.';
+
+/**
+ * Reads a scanned PDF one page at a time with the local OCR provider. Each
+ * passage keeps the reader's confidence. Returns null if it still can't be read.
+ */
+async function readScan(ocr: OcrProvider, bytes: Uint8Array, pageCount: number): Promise<ExtractionResult | null> {
+  if (pageCount < 1 || pageCount > MAX_OCR_PAGES) return null;
+  const blocks: RawBlock[] = [];
+  for (let page = 1; page <= pageCount; page++) {
+    let offset = 0;
+    for (const p of await ocr.recognisePage(bytes, page)) {
+      const text = p.text.replace(/\s+/g, ' ').trim();
+      if (!text) continue;
+      blocks.push({
+        kind: 'paragraph', clauseNumber: typedClauseNumber(text), text,
+        anchor: { format: 'pdf', page, charStart: offset, charEnd: offset + text.length, ocrConfidence: Math.max(0, Math.min(100, Math.round(p.confidence))) },
+      });
+      offset += text.length + 2; // paragraphs are joined by a blank line
+    }
+  }
+  const unreadable = assessQuality(blocks, 'pdf', pageCount);
+  return unreadable ? null : { format: 'pdf', pageCount, blocks, unreadable: null };
+}
 const EXCERPT_CHARS = 160;
 
 export function versionBlocks(db: Db, tenantId: string, versionId: string): ExtractionBlock[] {
@@ -127,7 +156,7 @@ export function buildTopics(blocks: ExtractionBlock[], versionId: string): Topic
   };
 }
 
-export const documentRoutes = ({ db, storage, ai }: Services) => async (app: FastifyInstance) => {
+export const documentRoutes = ({ db, storage, ai, ocr }: Services) => async (app: FastifyInstance) => {
   app.post('/api/projects/:projectId/documents', async (req, reply) => {
     const { projectId } = req.params as { projectId: string };
     const actor = req.actor;
@@ -164,6 +193,8 @@ export const documentRoutes = ({ db, storage, ai }: Services) => async (app: Fas
     try {
       kind = detectFileKind(fileName, bytes);
       result = await extract(kind, bytes);
+      // A scan with no text layer: read it with local OCR, if switched on.
+      if (result.unreadable && kind === 'pdf' && ocr) result = (await readScan(ocr, bytes, result.pageCount ?? 0)) ?? result;
     } catch (err) {
       if (err instanceof UnsupportedFileError) throw new HttpError(415, err.message);
       throw err;
@@ -179,6 +210,8 @@ export const documentRoutes = ({ db, storage, ai }: Services) => async (app: Fas
           .get(documentId, actor.tenantId) as { n: number }).n + 1)
       : 1;
     const status = result.unreadable ? 'unreadable' : 'ready';
+    const fromScan = !result.unreadable && result.blocks.some((b) => b.anchor.format === 'pdf' && b.anchor.ocrConfidence !== undefined);
+    const qualityMessage = result.unreadable ?? (fromScan ? SCAN_WARNING : null);
 
     db.exec('BEGIN');
     try {
@@ -190,7 +223,7 @@ export const documentRoutes = ({ db, storage, ai }: Services) => async (app: Fas
         `INSERT INTO document_versions (id, tenant_id, document_id, version_number, file_name, mime_type, size_bytes, sha256, storage_key,
            page_count, status, quality_message, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).run(versionId, actor.tenantId, documentId, versionNumber, fileName.slice(0, 255), MIME[kind], bytes.length, stored.sha256,
-        stored.key, result.pageCount, status, result.unreadable, actor.userId, t);
+        stored.key, result.pageCount, status, qualityMessage, actor.userId, t);
 
       if (!result.unreadable) {
         const insert = db.prepare(
@@ -203,7 +236,7 @@ export const documentRoutes = ({ db, storage, ai }: Services) => async (app: Fas
           const occurrence = seen.get(base) ?? 0;
           seen.set(base, occurrence + 1);
           const id = stableBlockId(versionId, anchorKey(b.anchor, b.kind, occurrence));
-          insert.run(id, actor.tenantId, versionId, i, b.kind, b.clauseNumber, b.text, JSON.stringify(b.anchor), JSON.stringify(detectFlags(b.text)));
+          insert.run(id, actor.tenantId, versionId, i, b.kind, b.clauseNumber, b.text, JSON.stringify(b.anchor), JSON.stringify([...detectFlags(b.text), ...(b.anchor.format === 'pdf' && b.anchor.ocrConfidence !== undefined ? ['read_from_scan'] : [])]));
         });
       }
       if (result.pageCount) {
@@ -291,8 +324,18 @@ export const documentRoutes = ({ db, storage, ai }: Services) => async (app: Fas
   app.get('/api/blocks/:blockId/passage', async (req) => {
     const { blockId } = req.params as { blockId: string };
     const { block, version } = loadBlock(db, req.actor, blockId);
-    const bytes = await storage.get(req.actor.tenantId, version.storage_key);
     const a = block.anchor;
+    // Text read from a scan has no text layer to re-read: show what OCR read, and say so.
+    if (block.flags.includes('read_from_scan') && a.format === 'pdf') {
+      const page = versionBlocks(db, req.actor.tenantId, version.id).filter((b) => b.anchor.format === 'pdf' && b.anchor.page === a.page);
+      const i = page.findIndex((b) => b.id === block.id);
+      return {
+        blockId, text: block.text, verified: false, fromScan: true, confidence: a.ocrConfidence ?? null, location: describeLocation(a, 'legal'),
+        before: i > 0 ? page[i - 1].text : '', after: i >= 0 && i < page.length - 1 ? page[i + 1].text : '',
+        disclaimer: POLICY_DISCLAIMER,
+      };
+    }
+    const bytes = await storage.get(req.actor.tenantId, version.storage_key);
     if (a.format === 'pdf') {
       const pageText = await readPdfPageText(bytes, a.page);
       const text = pageText.slice(a.charStart, a.charEnd);
@@ -303,9 +346,11 @@ export const documentRoutes = ({ db, storage, ai }: Services) => async (app: Fas
         disclaimer: POLICY_DISCLAIMER,
       };
     }
-    const { blocks } = await extractDocx(bytes);
-    const i = blocks.findIndex((b) => b.kind === block.kind && b.anchor.format === 'docx' && b.anchor.paragraphId === a.paragraphId
-      && (b.anchor.revisionId ?? null) === (a.revisionId ?? null));
+    const blocks = a.format === 'doc' ? (await extractDoc(bytes)).blocks : (await extractDocx(bytes)).blocks;
+    const i = blocks.findIndex((b) => {
+      if (a.format === 'doc') return b.anchor.format === 'doc' && b.anchor.paragraphIndex === a.paragraphIndex;
+      return b.kind === block.kind && b.anchor.format === 'docx' && b.anchor.paragraphId === a.paragraphId && (b.anchor.revisionId ?? null) === (a.revisionId ?? null);
+    });
     const found = blocks[i];
     return {
       blockId, text: found?.text ?? null, verified: found?.text === block.text, location: describeLocation(a, 'legal'),

@@ -5,7 +5,9 @@ import { join } from 'node:path';
 import JSZip from 'jszip';
 import { PDFDocument, StandardFonts } from 'pdf-lib';
 import { buildApp } from '../src/app.ts';
-import { loadConfig } from '../src/config.ts';
+import { type Config, loadConfig } from '../src/config.ts';
+import type { OcrProvider } from '../src/interfaces/index.ts';
+import type { Writable } from 'node:stream';
 import { openDb } from '../src/db/index.ts';
 import { SEED, seed } from '../src/db/seed.ts';
 import { FileStorage } from '../src/lib/storage.ts';
@@ -14,12 +16,15 @@ import { DbPlaybookSource } from '../src/library/store.ts';
 
 export { SEED };
 
-export async function makeApp() {
+export async function makeApp(opts: { config?: Partial<Config>; ocr?: OcrProvider; logStream?: Writable } = {}) {
   const dataDir = mkdtempSync(join(tmpdir(), 'easycontract-test-'));
-  const config = { ...loadConfig({ DATA_DIR: dataDir }), dbPath: ':memory:' };
+  const config = { ...loadConfig({ DATA_DIR: dataDir }), dbPath: ':memory:', ...opts.config };
   const db = openDb(':memory:');
   seed(db);
-  const app = await buildApp({ db, config, storage: new FileStorage(config.storageDir), ai: new DeterministicProvider(), playbooks: new DbPlaybookSource(db) });
+  const app = await buildApp(
+    { db, config, storage: new FileStorage(config.storageDir), ai: new DeterministicProvider(), playbooks: new DbPlaybookSource(db), ocr: opts.ocr ?? null },
+    { logStream: opts.logStream },
+  );
   return { app, db, config };
 }
 

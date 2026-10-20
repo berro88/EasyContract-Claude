@@ -1,0 +1,33 @@
+# Fly.io config for a password-protected private preview.
+# Change the app name to something unique, and pick the region closest to you
+# (for example jnb Johannesburg, lhr London, iad Virginia).
+# Set the password as a secret:  fly secrets set PREVIEW_PASSWORD="your long password"
+app = "easycontract-preview-change-me"
+primary_region = "lhr"
+
+[env]
+  NODE_ENV = "production"
+  DATA_DIR = "/data"
+  PORT = "3001"
+
+[http_service]
+  internal_port = 3001
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[http_service.checks]]
+    grace_period = "15s"
+    interval = "30s"
+    method = "GET"
+    path = "/api/health"
+    timeout = "5s"
+
+# Keeps the database and uploaded files when the machine restarts.
+[[mounts]]
+  source = "easycontract_data"
+  destination = "/data"
+
+[[vm]]
+  memory = "512mb"

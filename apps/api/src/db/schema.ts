@@ -19,6 +19,36 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL
 );
 
+-- Password hashes only (scrypt). Never logged, never returned.
+CREATE TABLE IF NOT EXISTS user_credentials (
+  user_id TEXT PRIMARY KEY REFERENCES users(id),
+  password_hash TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+-- Sessions are stored by the SHA-256 of their token; the token itself lives only in the browser cookie.
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+
+-- Company invites. No emails are sent: the inviter shares the link. Stored by token hash.
+CREATE TABLE IF NOT EXISTS tenant_invites (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  email TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('owner','admin','reviewer','commenter','read_only')),
+  token_hash TEXT NOT NULL UNIQUE,
+  invited_by TEXT NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  accepted_at TEXT,
+  revoked_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS tenant_memberships (
   tenant_id TEXT NOT NULL REFERENCES tenants(id),
   user_id TEXT NOT NULL REFERENCES users(id),

@@ -1,0 +1,13 @@
+# Render blueprint for a password-protected private preview.
+# Set PREVIEW_PASSWORD in the Render dashboard (it is marked sync: false so it never lives in the repo).
+services:
+  - type: web
+    name: easycontract-preview
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PREVIEW_PASSWORD
+        sync: false

@@ -41,7 +41,7 @@ export function ProjectPage() {
     setMessage(null);
     const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
     if (!(UPLOAD_LIMITS.extensions as readonly string[]).includes(ext)) {
-      setMessage({ kind: 'error', text: 'Only PDF and Word (.docx) files are supported.' });
+      setMessage({ kind: 'error', text: 'Only PDF and Word (.docx or .doc) files are supported.' });
       return;
     }
     if (file.size > UPLOAD_LIMITS.maxBytes) {
@@ -109,9 +109,9 @@ export function ProjectPage() {
               disabled={busy}
             >
               {busy ? 'Reading your document…' : t('uploadHint')}
-              <small>PDF or .docx, up to {MAX_MB} MB. Use synthetic or permitted documents only.</small>
+              <small>PDF or Word (.docx or .doc), up to {MAX_MB} MB. Use synthetic or permitted documents only.</small>
             </button>
-            <input ref={input} type="file" hidden accept=".pdf,.docx" onChange={(e) => e.target.files?.[0] && send(e.target.files[0])} />
+            <input ref={input} type="file" hidden accept=".pdf,.docx,.doc" onChange={(e) => e.target.files?.[0] && send(e.target.files[0])} />
             {message && (message.kind === 'ok'
               ? <p className="ok" role="status">{message.text}</p>
               : <Warning tone="danger">{message.text}</Warning>)}
@@ -126,7 +126,7 @@ export function ProjectPage() {
         )}
       </div>
       {data.documents.length === 0 && <div className="card empty"><p>No documents yet. Upload the main agreement first.</p></div>}
-      <input ref={versionInput} type="file" hidden accept=".pdf,.docx" onChange={(e) => e.target.files?.[0] && send(e.target.files[0], versionFor)} />
+      <input ref={versionInput} type="file" hidden accept=".pdf,.docx,.doc" onChange={(e) => e.target.files?.[0] && send(e.target.files[0], versionFor)} />
       <ul className="list">
         {data.documents.map((d) => {
           const v = d.latestVersion;
