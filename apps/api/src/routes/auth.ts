@@ -1,3 +1,4 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { POLICY_VERSION, ROLES, type Role } from '@easycontract/shared';
 import { now } from '../db/index.ts';
@@ -18,6 +19,18 @@ export const authRoutes = ({ db, config }: Services) => async (app: FastifyInsta
     reply.header('set-cookie', sessionCookie(token, maxAge, config.secureCookies));
   };
 
+  /**
+   * Who may create a new company account: anyone with the sign-up code if one
+   * is set; otherwise anyone in development, and nobody in production unless
+   * open sign-up is switched on. Invites always work.
+   */
+  const signup = config.signupCode ? 'code' as const : config.openSignup ? 'open' as const : 'closed' as const;
+  const codeMatches = (given: unknown) =>
+    typeof given === 'string' && timingSafeEqual(createHash('sha256').update(given.trim()).digest(), createHash('sha256').update(config.signupCode ?? '').digest());
+
+  /** Lets the sign-up page show (or hide) the code field. */
+  app.get('/api/auth/config', async () => ({ signup }));
+
   /** The policy version the person ticked must be the current one. */
   const requirePolicy = (v: unknown) => {
     if (v !== POLICY_VERSION) throw new HttpError(400, 'Read and accept the current usage policy to continue.', 'policy_required');
@@ -25,6 +38,15 @@ export const authRoutes = ({ db, config }: Services) => async (app: FastifyInsta
 
   app.post('/api/auth/signup', async (req, reply) => {
     const b = (req.body ?? {}) as Record<string, unknown>;
+    if (signup === 'closed') throw new HttpError(403, 'Sign-up is closed. Ask someone in your company to invite you from their Team page.', 'signup_closed');
+    if (signup === 'code') {
+      const key = `signup|${req.ip}`;
+      if (limiter.blocked(key)) throw new HttpError(429, 'Too many attempts. Wait 15 minutes and try again.');
+      if (!codeMatches(b.signupCode)) {
+        limiter.fail(key);
+        throw new HttpError(403, "That sign-up code isn't right. Ask whoever set up EasyContract for the code, or for an invite.", 'signup_code');
+      }
+    }
     const name = text(b.name);
     const companyName = text(b.companyName);
     const email = normaliseEmail(b.email);

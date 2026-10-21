@@ -1,7 +1,7 @@
-# Fly.io config for a password-protected private preview.
+# Fly.io config for an invite-only private preview.
 # Change the app name to something unique, and pick the region closest to you
 # (for example jnb Johannesburg, lhr London, iad Virginia).
-# Set the password as a secret:  fly secrets set PREVIEW_PASSWORD="your long password"
+# Set the sign-up code as a secret:  fly secrets set SIGNUP_CODE="your-own-code"
 app = "easycontract-preview-change-me"
 primary_region = "lhr"
 

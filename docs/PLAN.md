@@ -118,7 +118,8 @@ In scope:
 - **Hardening:** security headers on every response, cross-site write protection for cookie sessions, the dev sign-in shortcut always off in production, tests that contract text never reaches the logs, tenant isolation tests for every new route, existing upload type and size limits, and secrets read only from environment variables.
 - **Old .doc files** are read locally (paragraph-anchored, passages re-open from the original).
 - **Optional local OCR** (Tesseract and Poppler) for scans: one page at a time, a confidence per passage, and "read from a scan, check the wording" warnings on screen and in exports. Off unless switched on.
-- **Deployment config** for a password-protected private preview on Render (free) or Fly.io: `Dockerfile`, `render.yaml`, `fly.toml` and `docs/DEPLOY.md`. Not deployed.
+- **Deployment config** for an invite-only private preview on Render (free) or Fly.io: `Dockerfile`, `render.yaml`, `fly.toml` and `docs/DEPLOY.md`. Not deployed.
+- **Invite-only sign-up:** a `SIGNUP_CODE` is needed to create a new company account; without one, sign-up is closed in production. Invites always work. The browser-level `PREVIEW_PASSWORD` is now an optional extra, so there is a single login by default.
 
 ## Try it
 

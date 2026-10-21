@@ -1,5 +1,6 @@
-# Render blueprint for a password-protected private preview.
-# Set PREVIEW_PASSWORD in the Render dashboard (it is marked sync: false so it never lives in the repo).
+# Render blueprint for an invite-only private preview.
+# Set SIGNUP_CODE in the Render dashboard (marked sync: false, so it never lives in the repo).
+# Without it, nobody can create a new company account. Invited colleagues never need it.
 services:
   - type: web
     name: easycontract-preview
@@ -9,5 +10,5 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PREVIEW_PASSWORD
+      - key: SIGNUP_CODE
         sync: false

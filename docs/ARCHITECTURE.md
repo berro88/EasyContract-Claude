@@ -99,6 +99,7 @@ Two guarantees are tested on every finding: each passage it cites exists in the 
 
 - **Sign-in:** `src/lib/auth.ts` hashes passwords with scrypt, and stores sessions and invites by the SHA-256 of their random tokens, so a database leak exposes no usable token. The session cookie is HttpOnly and SameSite=Lax (and Secure in production). Writes that arrive with a cookie from another site's origin are refused.
 - **Request pipeline (`src/app.ts`):** security headers → optional preview password (HTTP Basic, from `PREVIEW_PASSWORD`) → session or, outside production, the `x-user-id` dev header → policy check (session users must have accepted the current `POLICY_VERSION`) → routes. Public routes: health, policy text, sign-up, sign-in, sign-out and invite acceptance.
+- **Who can sign up:** with `SIGNUP_CODE` set, creating a company needs that code (compared in constant time, with attempts limited); without it, sign-up is open in development and closed in production unless `ALLOW_OPEN_SIGNUP=1`. `GET /api/auth/config` tells the sign-up page which case applies.
 - **Invites** live in `tenant_invites`; accepting one adds a membership with the invited role and records the policy acceptance.
 - **Logging:** Fastify's default serializers log method, URL and status only. Error logs carry the message and code only. A test feeds contract text through uploads, errors and form fields and checks none of it reaches the log.
 - **.doc files** are read with `word-extractor` (`src/extraction/doc.ts`), anchored by paragraph position.

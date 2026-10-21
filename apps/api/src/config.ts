@@ -15,6 +15,10 @@ export interface Config {
   secureCookies: boolean;
   /** When set, every request needs this password (HTTP Basic). Comes only from the environment. */
   previewPassword: string | null;
+  /** When set, creating a new company account needs this code. Invited people never need it. */
+  signupCode: string | null;
+  /** Lets anyone create an account without a code. Off by default in production. */
+  openSignup: boolean;
   /** Built web app to serve, if present. */
   webDistDir: string | null;
   ocrEnabled: boolean;
@@ -32,6 +36,8 @@ export function loadConfig(env = process.env): Config {
     devAuth: !production && env.ALLOW_DEV_AUTH !== '0',
     secureCookies: production,
     previewPassword: env.PREVIEW_PASSWORD?.trim() || null,
+    signupCode: env.SIGNUP_CODE?.trim() || null,
+    openSignup: env.ALLOW_OPEN_SIGNUP === '1' || !production,
     webDistDir: env.WEB_DIST_DIR ? resolve(env.WEB_DIST_DIR) : null,
     ocrEnabled: env.OCR_ENABLED === '1',
     dataDir,

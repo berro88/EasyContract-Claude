@@ -1,6 +1,6 @@
 # Putting EasyContract online as a private preview
 
-This puts EasyContract on the internet behind **one shared password**, so only people you give the password to can even see the sign-in page. Nothing here has been deployed for you; these are the steps to do it yourself.
+This puts EasyContract on the internet as an **invite-only** app. There is one login, the EasyContract sign-in page, and it remembers you for 14 days on each device. New company accounts need a **sign-up code** that you choose; colleagues join through invite links from the Team page and never need the code. Without a sign-up code, nobody can create a new account. Nothing here has been deployed for you; these are the steps to do it yourself.
 
 > **Before you start**
 > - EasyContract is not a formal legal advisory tool, and the usage policy is still a draft. Have a lawyer review it before real customers use the app.
@@ -17,13 +17,22 @@ You need a free GitHub account with the `EasyContract-Claude` repository, and an
 
 1. Sign in at **render.com** and connect your GitHub account when asked.
 2. Click **New** → **Blueprint**, and choose the `EasyContract-Claude` repository. Render reads the `render.yaml` file in the repository.
-3. Render asks for a value for **PREVIEW_PASSWORD**. Make up a long password (at least 16 characters, for example four random words) and enter it. This is the shared password for the whole site.
+3. Render asks for a value for **SIGNUP_CODE**. Make up a code that is hard to guess (for example three random words joined by dashes, like `harbour-lantern-forty`) and enter it. You'll need it once, to create your company account.
 4. Click **Apply**. The first build takes 5 to 10 minutes.
 5. When it says **Live**, open the address Render shows (it ends in `onrender.com`).
-6. Your browser asks for a username and password. Type anything as the username and the password from step 3.
-7. Choose **Create a company account**, read and accept the usage policy, and you're in.
+6. Choose **Create a company account**, enter the sign-up code from step 3, read and accept the usage policy, and you're in.
 
-To change the password later: **Dashboard** → your service → **Environment** → edit `PREVIEW_PASSWORD` → **Save**. Render restarts the service.
+To change the code later: **Dashboard** → your service → **Environment** → edit `SIGNUP_CODE` → **Save**. Render restarts the service.
+
+### Already set up with the old browser password?
+
+Earlier versions used a grey browser pop-up (`PREVIEW_PASSWORD`). To switch to invite-only:
+
+1. In Render, open your service → **Environment**.
+2. **Delete** `PREVIEW_PASSWORD`, and **add** `SIGNUP_CODE` with a code you choose.
+3. Click **Save**, then **Manual Deploy** → **Deploy latest commit**.
+
+Because the free plan wipes data on restart, create your company account again afterwards, using the sign-up code.
 
 ## Option B: Fly.io (keeps your data)
 
@@ -35,12 +44,12 @@ Fly needs a payment card on file, but a small preview like this usually costs li
    ```bash
    fly apps create <the name you chose>
    fly volumes create easycontract_data --size 1 --region <your region>
-   fly secrets set PREVIEW_PASSWORD="<a long password>"
+   fly secrets set SIGNUP_CODE="<a code you choose>"
    fly deploy
    ```
-4. Open `https://<the name you chose>.fly.dev`, enter any username and the preview password, and create your company account.
+4. Open `https://<the name you chose>.fly.dev`, choose **Create a company account**, and enter the sign-up code.
 
-To change the password: `fly secrets set PREVIEW_PASSWORD="<new password>"`.
+To change the code: `fly secrets set SIGNUP_CODE="<new code>"`.
 
 ---
 
@@ -57,13 +66,16 @@ Passages read from a scan are marked "Read from a scan: check the wording" on sc
 
 | Setting | What it does | Where it is set |
 |---|---|---|
-| `PREVIEW_PASSWORD` | The shared password for the whole site. Leave it out and the site is open to anyone with the address. | Host dashboard or `fly secrets` only |
+| `SIGNUP_CODE` | Needed to create a new company account. Without it, sign-up is closed (invites still work). | Host dashboard or `fly secrets` only |
+| `ALLOW_OPEN_SIGNUP=1` | Lets anyone with the address create an account, no code needed. Not recommended online. | Host dashboard |
+| `PREVIEW_PASSWORD` | Optional extra: a browser password pop-up in front of the whole site. Leave it out for a single login. | Host dashboard or `fly secrets` only |
 | `NODE_ENV=production` | Turns off the developer shortcut sign-in and requires secure cookies. | Already set in the config files |
 | `DATA_DIR` | Where the database and uploaded files are kept. | Already set (`/data`) |
 | `ENABLE_OCR` | Installs the OCR tools and switches on reading scanned PDFs locally. | Render environment, or `fly deploy --build-arg` (see above) |
 
 ## After it's running
 
-- **Invite colleagues:** in the app, open **Team**, enter their email and role, and send them the link it shows. No emails are sent by the app. They also need the preview password.
-- **Health check:** `/api/health` answers without the password so the host can tell the app is running. It reveals nothing else.
+- **Invite colleagues:** in the app, open **Team**, enter their email and role, and send them the link it shows. No emails are sent by the app. They don't need the sign-up code.
+- **Staying signed in:** each device stays signed in for 14 days, unless you choose **Sign out**. On Render's free plan, a restart wipes accounts, so everyone signs up or is invited again.
+- **Health check:** `/api/health` answers without signing in so the host can tell the app is running. It reveals nothing else.
 - **Turning it off:** Render: **Settings** → **Suspend**. Fly: `fly scale count 0`.

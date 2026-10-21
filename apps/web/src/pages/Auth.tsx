@@ -37,8 +37,11 @@ function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+type SignupMode = 'open' | 'code' | 'closed';
+
 export function Login() {
   const navigate = useNavigate();
+  const config = useApi<{ signup: SignupMode }>('/auth/config');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +66,9 @@ export function Login() {
         {error && <p className="error">{error}</p>}
         <button className="btn btn--primary" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
       </form>
-      <p className="muted">New here? <Link to="/signup">Create a company account</Link></p>
+      {config.data?.signup === 'closed'
+        ? <p className="muted">New here? Ask someone in your company to invite you from their Team page.</p>
+        : <p className="muted">New here? <Link to="/signup">Create a company account</Link></p>}
       {import.meta.env.DEV && (
         <p className="muted small">
           Local development: <button className="linklike" onClick={() => { setDevUser(DEFAULT_DEV_USER); navigate('/'); }}>continue as the demo owner</button>
@@ -75,7 +80,8 @@ export function Login() {
 
 export function Signup() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', companyName: '', email: '', password: '' });
+  const config = useApi<{ signup: SignupMode }>('/auth/config');
+  const [form, setForm] = useState({ name: '', companyName: '', email: '', password: '', signupCode: '' });
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -93,9 +99,25 @@ export function Signup() {
     } catch (err) { setError((err as Error).message); } finally { setBusy(false); }
   }
 
+  if (config.data?.signup === 'closed') {
+    return (
+      <AuthCard title="Sign-up is invite-only">
+        <p>To join, ask someone in your company to invite you from their <strong>Team</strong> page. They'll send you a link.</p>
+        <p className="muted">Already have an account? <Link to="/login">Sign in</Link></p>
+      </AuthCard>
+    );
+  }
+
   return (
     <AuthCard title="Create a company account">
       <form className="form" onSubmit={submit}>
+        {config.data?.signup === 'code' && (
+          <label className="field">
+            <span>Sign-up code</span>
+            <input autoComplete="off" value={form.signupCode} onChange={set('signupCode')} required />
+            <small className="muted">You get this from whoever set up EasyContract. Joining an existing company? Use their invite link instead.</small>
+          </label>
+        )}
         <label className="field"><span>Your name</span><input autoComplete="name" value={form.name} onChange={set('name')} required /></label>
         <label className="field"><span>Company name</span><input autoComplete="organization" value={form.companyName} onChange={set('companyName')} required /></label>
         <label className="field"><span>Email</span><input type="email" autoComplete="email" value={form.email} onChange={set('email')} required /></label>

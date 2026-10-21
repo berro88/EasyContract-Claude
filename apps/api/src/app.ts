@@ -19,7 +19,7 @@ import { libraryRoutes } from './routes/library.ts';
 import { wizardRoutes } from './routes/wizard.ts';
 
 /** Reachable without signing in. */
-const PUBLIC = [/^\/api\/health$/, /^\/api\/policy$/, /^\/api\/auth\/(signup|login|logout|accept-invite)$/, /^\/api\/auth\/invite\/[\w-]+$/];
+const PUBLIC = [/^\/api\/health$/, /^\/api\/policy$/, /^\/api\/auth\/(signup|login|logout|accept-invite|config)$/, /^\/api\/auth\/invite\/[\w-]+$/];
 /** Reachable while signed in but before accepting the current usage policy. */
 const BEFORE_POLICY = [/^\/api\/me$/, /^\/api\/policy\/accept$/, /^\/api\/auth\/logout$/];
 

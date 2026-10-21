@@ -165,3 +165,47 @@ describe('company invites', () => {
     expect((await invite(app, cookie, 'alex@example.test', 'reviewer')).statusCode).toBe(409);
   });
 });
+
+describe('invite-only sign-up', () => {
+  it('needs the sign-up code when one is set', async () => {
+    const { app } = await makeApp({ config: { devAuth: false, production: true, signupCode: 'harbour-lantern-42', openSignup: false } });
+    expect((await app.inject({ url: '/api/auth/config' })).json()).toEqual({ signup: 'code' });
+    const none = await signup(app);
+    expect(none.statusCode).toBe(403);
+    expect(none.json().code).toBe('signup_code');
+    expect((await signup(app, { ...SIGNUP, signupCode: 'wrong-code' })).statusCode).toBe(403);
+    expect((await signup(app, { ...SIGNUP, signupCode: '  harbour-lantern-42 ' })).statusCode).toBe(201);
+  });
+
+  it('limits guessing the code', async () => {
+    const { app } = await makeApp({ config: { devAuth: false, production: true, signupCode: 'harbour-lantern-42', openSignup: false } });
+    for (let i = 0; i < 10; i++) await signup(app, { ...SIGNUP, signupCode: `guess-${i}` });
+    expect((await signup(app, { ...SIGNUP, signupCode: 'harbour-lantern-42' })).statusCode).toBe(429);
+  });
+
+  it('is closed in production when no code is set, but invites still work', async () => {
+    const { app, db } = await makeApp({ config: { devAuth: false, production: true, openSignup: false, signupCode: null } });
+    expect((await app.inject({ url: '/api/auth/config' })).json()).toEqual({ signup: 'closed' });
+    const res = await signup(app);
+    expect(res.statusCode).toBe(403);
+    expect(res.json().code).toBe('signup_closed');
+
+    // An existing owner on this same server invites someone; the invite still works.
+    const { createCompany, createSession, createUser, hashPassword, recordPolicyAcceptance } = await import('../src/lib/auth.ts');
+    const ownerId = createUser(db, { email: 'owner@example.test', name: 'Owner', passwordHash: await hashPassword('owner long password') });
+    const tenantId = createCompany(db, { companyName: 'Closed Co', userId: ownerId });
+    recordPolicyAcceptance(db, ownerId, tenantId);
+    const { token } = createSession(db, ownerId, tenantId);
+    const inv = await app.inject({ method: 'POST', url: '/api/tenant/invites', headers: { cookie: `ec_session=${token}` }, payload: { email: 'sam@example.test', role: 'reviewer' } });
+    const accepted = await app.inject({ method: 'POST', url: '/api/auth/accept-invite', payload: { token: inv.json().link.split('/').pop(), name: 'Sam', password: 'another long password', acceptPolicyVersion: POLICY_VERSION } });
+    expect(accepted.statusCode).toBe(200);
+    expect(((await me(app, cookieFrom(accepted))).json() as Me).tenant.name).toBe('Closed Co');
+  });
+
+  it('defaults: open in local development, closed in production', async () => {
+    const { loadConfig } = await import('../src/config.ts');
+    expect(loadConfig({ DATA_DIR: '/tmp/x' }).openSignup).toBe(true);
+    expect(loadConfig({ DATA_DIR: '/tmp/x', NODE_ENV: 'production' }).openSignup).toBe(false);
+    expect(loadConfig({ DATA_DIR: '/tmp/x', NODE_ENV: 'production', SIGNUP_CODE: ' abc ' }).signupCode).toBe('abc');
+  });
+});
