@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { EXPERTISE_LEVELS, THEMES, type ExpertiseLevel, type Me, type Theme } from '@easycontract/shared';
 import { usePrefs } from '../lib/prefs.tsx';
@@ -40,6 +41,8 @@ export function PublicLayout() {
 export function Layout() {
   const { theme, setTheme, level, setLevel } = usePrefs();
   const me = useApi<Me>('/me');
+  // On small screens the display settings fold away behind one button.
+  const [prefsOpen, setPrefsOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -64,12 +67,16 @@ export function Layout() {
           <NavLink to="/profile">Company profile</NavLink>
           <NavLink to="/team">Team</NavLink>
         </nav>
-        <div className="topbar__prefs">
+        <button type="button" className="prefs-toggle" aria-expanded={prefsOpen} aria-controls="topbar-prefs" onClick={() => setPrefsOpen(!prefsOpen)}>
+          Display {prefsOpen ? '▲' : '▼'}
+        </button>
+        <div id="topbar-prefs" className={`topbar__prefs ${prefsOpen ? 'is-open' : ''}`}>
           <Segmented label="Theme" options={THEMES} labels={THEME_LABELS} value={theme} onChange={setTheme} />
           <Segmented label="Detail" options={EXPERTISE_LEVELS} labels={LEVEL_LABELS} value={level} onChange={setLevel} />
           {me.data && (
             <span className="whoami" title={me.data.user.email}>
-              {me.data.user.name} · {me.data.tenant.name}{me.data.authMode === 'dev' && ' (dev sign-in)'}
+              <span className="whoami__name">{me.data.user.name}</span>
+              <span className="whoami__tenant"> · {me.data.tenant.name}{me.data.authMode === 'dev' && ' (dev sign-in)'}</span>
               <button className="linklike signout" onClick={signOut}>Sign out</button>
             </span>
           )}
