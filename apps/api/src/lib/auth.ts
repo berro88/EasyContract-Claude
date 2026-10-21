@@ -127,6 +127,24 @@ export function addMembership(db: Db, tenantId: string, userId: string, role: Ro
   db.prepare(`INSERT OR IGNORE INTO tenant_memberships (tenant_id, user_id, role, created_at) VALUES (?, ?, ?, ?)`).run(tenantId, userId, role, now());
 }
 
+// ---------- Temporary open access ----------
+
+export const OPEN_ACCESS_USER = 'user_open_preview';
+const OPEN_ACCESS_EMAIL = 'open-preview@easycontract.invalid';
+
+/**
+ * The shared company and user that open-access visitors act as. Created once;
+ * it has no password, so nobody can sign in to it normally.
+ */
+export function ensureOpenAccessAccount(db: Db): { userId: string; tenantId: string } {
+  const existing = db.prepare(`SELECT tenant_id FROM tenant_memberships WHERE user_id = ? LIMIT 1`).get(OPEN_ACCESS_USER) as { tenant_id: string } | undefined;
+  if (existing) return { userId: OPEN_ACCESS_USER, tenantId: existing.tenant_id };
+  db.prepare(`INSERT INTO users (id, email, name, created_at) VALUES (?, ?, 'Open preview visitor', ?)`).run(OPEN_ACCESS_USER, OPEN_ACCESS_EMAIL, now());
+  const tenantId = createCompany(db, { companyName: 'Open preview (shared)', userId: OPEN_ACCESS_USER });
+  recordPolicyAcceptance(db, OPEN_ACCESS_USER, tenantId);
+  return { userId: OPEN_ACCESS_USER, tenantId };
+}
+
 // ---------- Invites ----------
 
 export function createInvite(db: Db, input: { tenantId: string; email: string; role: Role; invitedBy: string }) {

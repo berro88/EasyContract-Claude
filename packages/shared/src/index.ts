@@ -133,8 +133,8 @@ export interface Me {
   role: Role;
   plan: string | null;
   policyAccepted: boolean;
-  /** 'dev' only in local development, when signed in with the x-user-id shortcut. */
-  authMode: 'session' | 'dev';
+  /** 'dev': local development shortcut. 'open': temporary open access, no sign-in at all. */
+  authMode: 'session' | 'dev' | 'open';
 }
 
 /** A plain-English note about a block. Always points back at its source. */

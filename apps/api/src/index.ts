@@ -20,5 +20,6 @@ const app = await buildApp(
   { logger: true },
 );
 if (config.ocrEnabled && !ocr) app.log.warn('OCR_ENABLED is set but tesseract or pdftoppm is not installed; scans will be reported as unreadable.');
+if (config.openAccess) app.log.warn('OPEN_ACCESS is on: no sign-in is needed and every visitor shares one company. Remove OPEN_ACCESS to restore sign-in.');
 if (config.devAuth) app.log.warn('Development sign-in (x-user-id header) is on. It is always off when NODE_ENV=production.');
 await app.listen({ port: config.port, host: config.host });

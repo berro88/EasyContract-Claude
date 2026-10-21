@@ -8,6 +8,7 @@ export const WARNINGS = {
   trackedChange: 'Tracked change: this wording may not be agreed yet. Check whether it was accepted before relying on it.',
   unverified: 'The original file no longer matches this passage. Re-upload the document before relying on it.',
   draftPolicy: 'The usage policy is a draft and has not yet been reviewed by a lawyer.',
+  openAccess: 'Open preview: no sign-in is needed, so anyone with this link can see and change everything here. Do not upload real contracts or personal information.',
   fromScan: 'Read from a scan. Automatic reading can get words and numbers wrong: check the wording against the original before relying on it.',
   lowConfidence: 'The scan was hard to read here. Check this wording against the original.',
 } as const;

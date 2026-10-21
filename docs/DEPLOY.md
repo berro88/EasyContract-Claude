@@ -68,6 +68,7 @@ Passages read from a scan are marked "Read from a scan: check the wording" on sc
 |---|---|---|
 | `SIGNUP_CODE` | Needed to create a new company account. Without it, sign-up is closed (invites still work). | Host dashboard or `fly secrets` only |
 | `ALLOW_OPEN_SIGNUP=1` | Lets anyone with the address create an account, no code needed. Not recommended online. | Host dashboard |
+| `OPEN_ACCESS=1` | **Temporary.** No sign-in at all: every visitor goes straight in and shares one "Open preview" company. Also skips `PREVIEW_PASSWORD`. A notice on every page warns not to upload real contracts. Delete it to restore sign-in. | Host dashboard |
 | `PREVIEW_PASSWORD` | Optional extra: a browser password pop-up in front of the whole site. Leave it out for a single login. | Host dashboard or `fly secrets` only |
 | `NODE_ENV=production` | Turns off the developer shortcut sign-in and requires secure cookies. | Already set in the config files |
 | `DATA_DIR` | Where the database and uploaded files are kept. | Already set (`/data`) |

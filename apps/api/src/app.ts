@@ -8,7 +8,7 @@ import fastifyStatic from '@fastify/static';
 import type { Role } from '@easycontract/shared';
 import type { Services } from './lib/context.ts';
 import { HttpError } from './lib/context.ts';
-import { SESSION_COOKIE, hasAcceptedPolicy, readCookie, sessionFor } from './lib/auth.ts';
+import { SESSION_COOKIE, ensureOpenAccessAccount, hasAcceptedPolicy, readCookie, sessionFor } from './lib/auth.ts';
 import { authRoutes } from './routes/auth.ts';
 import { tenantRoutes } from './routes/tenant.ts';
 import { projectRoutes } from './routes/projects.ts';
@@ -42,6 +42,9 @@ export async function buildApp(services: Services, opts: { logger?: boolean; log
 
   app.decorateRequest('actor', null as never);
 
+  // Temporary open access: one shared account for every visitor who isn't signed in.
+  const openAccount = config.openAccess ? ensureOpenAccessAccount(db) : null;
+
   // Security headers on every response.
   app.addHook('onSend', async (req, reply, payload) => {
     reply.header('x-content-type-options', 'nosniff');
@@ -55,7 +58,7 @@ export async function buildApp(services: Services, opts: { logger?: boolean; log
   });
 
   // Private preview: one shared password for the whole site, from the environment only.
-  if (config.previewPassword) {
+  if (config.previewPassword && !config.openAccess) {
     const expected = digest(config.previewPassword);
     app.addHook('onRequest', async (req, reply) => {
       if (req.url === '/api/health') return;
@@ -87,6 +90,11 @@ export async function buildApp(services: Services, opts: { logger?: boolean; log
       if (!BEFORE_POLICY.some((r) => r.test(path)) && !hasAcceptedPolicy(db, session.userId, session.tenantId)) {
         throw new HttpError(403, 'Please read and accept the current usage policy to continue.', 'policy_required');
       }
+      return;
+    }
+
+    if (openAccount && !(config.devAuth && req.headers['x-user-id'])) {
+      req.actor = { userId: openAccount.userId, tenantId: openAccount.tenantId, role: 'owner', via: 'open' };
       return;
     }
 

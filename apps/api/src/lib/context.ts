@@ -21,8 +21,8 @@ export interface Actor {
   userId: string;
   tenantId: string;
   role: Role;
-  /** How the request was signed in: a session cookie, or the dev-only header. */
-  via: 'session' | 'dev';
+  /** How the request was signed in: a session cookie, the dev-only header, or temporary open access. */
+  via: 'session' | 'dev' | 'open';
 }
 
 declare module 'fastify' {

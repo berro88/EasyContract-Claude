@@ -19,6 +19,11 @@ export interface Config {
   signupCode: string | null;
   /** Lets anyone create an account without a code. Off by default in production. */
   openSignup: boolean;
+  /**
+   * Temporary: no sign-in at all. Every visitor without a session uses one
+   * shared "Open preview" company. Only for trying the app; never for real data.
+   */
+  openAccess: boolean;
   /** Built web app to serve, if present. */
   webDistDir: string | null;
   ocrEnabled: boolean;
@@ -38,6 +43,7 @@ export function loadConfig(env = process.env): Config {
     previewPassword: env.PREVIEW_PASSWORD?.trim() || null,
     signupCode: env.SIGNUP_CODE?.trim() || null,
     openSignup: env.ALLOW_OPEN_SIGNUP === '1' || !production,
+    openAccess: env.OPEN_ACCESS === '1',
     webDistDir: env.WEB_DIST_DIR ? resolve(env.WEB_DIST_DIR) : null,
     ocrEnabled: env.OCR_ENABLED === '1',
     dataDir,

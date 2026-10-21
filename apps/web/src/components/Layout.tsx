@@ -6,6 +6,8 @@ import { useApi } from '../lib/useApi.ts';
 import { PolicyBanner } from './PolicyBanner.tsx';
 import { PolicyGate } from '../pages/Auth.tsx';
 import { api, setDevUser } from '../lib/api.ts';
+import { Warning } from './Warning.tsx';
+import { WARNINGS } from '../lib/warnings.ts';
 
 const THEME_LABELS: Record<Theme, string> = { fun: 'Fun', normal: 'Normal', professional: 'Professional' };
 const LEVEL_LABELS: Record<ExpertiseLevel, string> = { plain: 'Plain', legal: 'Legal' };
@@ -77,12 +79,15 @@ export function Layout() {
             <span className="whoami" title={me.data.user.email}>
               <span className="whoami__name">{me.data.user.name}</span>
               <span className="whoami__tenant"> · {me.data.tenant.name}{me.data.authMode === 'dev' && ' (dev sign-in)'}</span>
-              <button className="linklike signout" onClick={signOut}>Sign out</button>
+              {me.data.authMode === 'open'
+                ? <NavLink className="signout" to="/login">Sign in</NavLink>
+                : <button className="linklike signout" onClick={signOut}>Sign out</button>}
             </span>
           )}
         </div>
       </header>
       <PolicyBanner />
+      {me.data?.authMode === 'open' && <div className="open-banner"><Warning tone="danger">{WARNINGS.openAccess}</Warning></div>}
       <main className="main">
         {me.data && !me.data.policyAccepted && me.data.authMode === 'session'
           ? <PolicyGate onAccepted={me.reload} />

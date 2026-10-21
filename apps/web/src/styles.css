@@ -291,6 +291,8 @@ a.list__item:hover { border-color: var(--accent); }
 .consent__tick { display: flex; gap: 0.5rem; align-items: flex-start; margin-top: 0.6rem; font-size: 0.9rem; }
 .consent__tick input { margin-top: 0.2rem; }
 .signout { margin-left: 0.6rem; font-size: 0.85rem; }
+.open-banner { padding: 0 clamp(1rem, 2.5vw, 3rem); }
+.open-banner .safety { margin: 0.75rem 0 0; }
 .invite-form { grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr)); align-items: start; }
 .invite-link { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
 .invite-link input { flex: 1; min-width: 0; }

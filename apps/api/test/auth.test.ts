@@ -209,3 +209,27 @@ describe('invite-only sign-up', () => {
     expect(loadConfig({ DATA_DIR: '/tmp/x', NODE_ENV: 'production', SIGNUP_CODE: ' abc ' }).signupCode).toBe('abc');
   });
 });
+
+describe('temporary open access', () => {
+  it('lets visitors in without signing in, sharing one company, and skips the preview password', async () => {
+    const { app } = await makeApp({ config: { devAuth: false, production: true, openAccess: true, previewPassword: 'old-pop-up-password' } });
+    const res = await app.inject({ url: '/api/me' });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toMatchObject({ authMode: 'open', role: 'owner', tenant: { name: 'Open preview (shared)' }, policyAccepted: true });
+    expect((await app.inject({ method: 'POST', url: '/api/projects', payload: { name: 'Shared project' } })).statusCode).toBe(201);
+    // A second visitor sees the same shared company.
+    const list = (await app.inject({ url: '/api/projects' })).json() as { name: string }[];
+    expect(list.map((p) => p.name)).toEqual(['Shared project']);
+    // Signed-in people still use their own company.
+    const cookie = cookieFrom(await signup(app));
+    expect(((await me(app, cookie)).json() as Me)).toMatchObject({ authMode: 'session', tenant: { name: 'Example Holdings' } });
+  });
+
+  it('is off unless OPEN_ACCESS=1', async () => {
+    const { loadConfig } = await import('../src/config.ts');
+    expect(loadConfig({ DATA_DIR: '/tmp/x', NODE_ENV: 'production' }).openAccess).toBe(false);
+    expect(loadConfig({ DATA_DIR: '/tmp/x', NODE_ENV: 'production', OPEN_ACCESS: '1' }).openAccess).toBe(true);
+    const { app } = await makeApp({ config: { devAuth: false, production: true } });
+    expect((await app.inject({ url: '/api/me' })).statusCode).toBe(401);
+  });
+});
